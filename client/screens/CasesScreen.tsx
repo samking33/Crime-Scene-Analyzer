@@ -88,27 +88,24 @@ export default function CasesScreen() {
       <Animated.View entering={FadeIn.duration(500)} style={styles.headerContent}>
         <View style={styles.statsGrid}>
           <StatCard
-            icon={<Feather name="folder" size={24} color={Colors.dark.primary} />}
+            icon={<Feather name="folder" size={20} color={Colors.dark.primary} />}
             value={activeCases}
-            label="Active Cases"
+            label="Active"
           />
           <StatCard
-            icon={<Feather name="check-circle" size={24} color={Colors.dark.success} />}
+            icon={<Feather name="check-circle" size={20} color={Colors.dark.success} />}
             value={closedCases}
             label="Closed"
           />
-        </View>
-        
-        <View style={styles.statsGrid}>
           <StatCard
-            icon={<Feather name="image" size={24} color={Colors.dark.accent} />}
+            icon={<Feather name="image" size={20} color={Colors.dark.accent} />}
             value={totalEvidence}
-            label="Evidence Items"
+            label="Evidence"
           />
           <StatCard
-            icon={<Feather name="database" size={24} color={Colors.dark.warning} />}
+            icon={<Feather name="database" size={20} color={Colors.dark.warning} />}
             value={cases.length}
-            label="Total Cases"
+            label="Total"
           />
         </View>
 
@@ -232,7 +229,8 @@ const styles = StyleSheet.create({
   },
   statsGrid: {
     flexDirection: "row",
-    gap: Spacing.md,
+    flexWrap: "wrap",
+    gap: Spacing.sm,
     marginBottom: Spacing.md,
   },
   searchContainer: {
