@@ -73,11 +73,26 @@ server/
 ```
 
 ## API Endpoints
-- **POST /api/analyze-image** - AI analysis of crime scene photos using GPT-4o Vision
+- **POST /api/analyze-image** - AI object detection and analysis of crime scene photos using GPT-4o Vision
+  - Returns: detectedObjects, aiSummary, analysis, objectCount, confidenceDistribution
 - **POST /api/generate-report** - PDF report generation with HTML template
 
+## AI Object Detection System
+When a photo is captured, the AI automatically:
+1. Detects all visible objects relevant to law enforcement (weapons, vehicles, persons, documents, drugs, blood/fingerprints)
+2. Assigns confidence levels (high/medium/low) and locations in image
+3. Generates a professional 2-3 sentence summary
+4. Categories with visual overlay colors:
+   - Red: Weapons
+   - Yellow: Vehicles
+   - Blue: Persons
+   - Green: Documents
+   - Orange: Drugs/Substances
+   - Purple: Biometrics (blood, fingerprints)
+   - Gray: Other items
+
 ## Evidence Types
-- **photo** - Images with GPS, AI analysis, pinch-to-zoom viewing
+- **photo** - Images with GPS, AI analysis, object detection overlays, pinch-to-zoom viewing
 - **video** - Recordings with duration, playback with expo-video
 - **audio** - Audio recordings with duration
 - **note** - Text notes with content preview
@@ -101,3 +116,10 @@ server/
 - Implemented evidence type filtering with counts in CaseDetailScreen
 - Added PDF report generation with expo-print and expo-sharing
 - Enhanced EvidenceCard with video thumbnails, AI analysis badges, and type-specific colors
+- **Enhanced AI Object Detection** - Full object detection with category classification
+- **Visual Bounding Boxes** - Color-coded overlays showing detected objects on photos
+- **Analysis Results Card** - Object counts, confidence distribution, and AI summary
+- **Re-analyze Feature** - Button to reprocess photos with AI
+- **Toggle Overlay** - Show/hide detection boxes on evidence photos
+- Fixed 413 error by increasing server body parser limit to 50MB
+- Fixed video recording stop button
