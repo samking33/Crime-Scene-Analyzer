@@ -4,10 +4,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp, NativeStackScreenProps } from "@react-navigation/native-stack";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import Animated, { FadeIn } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -16,7 +18,7 @@ import { ActivityItem } from "@/components/ActivityItem";
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
 import { TimelineView } from "@/components/TimelineView";
-import { Colors, Spacing, BorderRadius, Fonts } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Shadows, GradientColors } from "@/constants/theme";
 import { getCase, getEvidence, getActivityLog, setActiveCase, createReport, updateReport, getProfile } from "@/lib/storage";
 import { getApiUrl } from "@/lib/query-client";
 import { format } from "date-fns";
@@ -157,7 +159,7 @@ export default function CaseDetailScreen() {
       <Feather
         name={icon}
         size={16}
-        color={activeTab === tab ? Colors.dark.accent : Colors.dark.textSecondary}
+        color={activeTab === tab ? Colors.dark.primary : Colors.dark.textTertiary}
       />
       <ThemedText
         style={[styles.tabLabel, activeTab === tab && styles.tabLabelActive]}
@@ -178,7 +180,7 @@ export default function CaseDetailScreen() {
       <Feather
         name={icon}
         size={14}
-        color={evidenceFilter === filter ? Colors.dark.buttonText : Colors.dark.textSecondary}
+        color={evidenceFilter === filter ? Colors.dark.buttonText : Colors.dark.textTertiary}
       />
       <ThemedText
         style={[styles.filterLabel, evidenceFilter === filter && styles.filterLabelActive]}
@@ -225,22 +227,25 @@ export default function CaseDetailScreen() {
 
       {filteredEvidence.length === 0 ? (
         <View style={styles.emptyFilterState}>
-          <Feather
-            name={evidenceFilter === "photo" ? "image" : evidenceFilter === "video" ? "video" : evidenceFilter === "audio" ? "mic" : evidenceFilter === "note" ? "file-text" : "grid"}
-            size={48}
-            color={Colors.dark.textSecondary}
-          />
+          <View style={styles.emptyIconContainer}>
+            <Feather
+              name={evidenceFilter === "photo" ? "image" : evidenceFilter === "video" ? "video" : evidenceFilter === "audio" ? "mic" : evidenceFilter === "note" ? "file-text" : "grid"}
+              size={32}
+              color={Colors.dark.textTertiary}
+            />
+          </View>
           <ThemedText style={styles.emptyTabText}>
             No {evidenceFilter === "all" ? "evidence" : `${evidenceFilter}s`} captured yet
           </ThemedText>
         </View>
       ) : (
         <View style={styles.evidenceGrid}>
-          {filteredEvidence.map((item) => (
+          {filteredEvidence.map((item, index) => (
             <EvidenceCard
               key={item.id}
               evidence={item}
               compact
+              index={index}
               onPress={() => handleEvidencePress(item)}
             />
           ))}
@@ -252,7 +257,12 @@ export default function CaseDetailScreen() {
   const renderActivityContent = () => (
     <View style={styles.tabContent}>
       {activityLog.length === 0 ? (
-        <ThemedText style={styles.emptyTabText}>No activity recorded yet</ThemedText>
+        <View style={styles.emptyFilterState}>
+          <View style={styles.emptyIconContainer}>
+            <Feather name="activity" size={32} color={Colors.dark.textTertiary} />
+          </View>
+          <ThemedText style={styles.emptyTabText}>No activity recorded yet</ThemedText>
+        </View>
       ) : (
         <View style={styles.activityList}>
           {activityLog.map((item, index) => (
@@ -274,56 +284,71 @@ export default function CaseDetailScreen() {
         styles.scrollContent,
         {
           paddingTop: headerHeight + Spacing.lg,
-          paddingBottom: insets.bottom + Spacing.xl,
+          paddingBottom: insets.bottom + Spacing["3xl"],
         },
       ]}
       data={[{ key: "content" }]}
       keyExtractor={(item) => item.key}
       renderItem={() => (
         <>
-          <View style={styles.header}>
+          <Animated.View entering={FadeIn.duration(400)} style={styles.header}>
             <View style={styles.caseIdRow}>
-              <ThemedText style={styles.caseId}>{caseData.caseId}</ThemedText>
+              <View style={styles.caseIdBadge}>
+                <ThemedText style={styles.caseId}>{caseData.caseId}</ThemedText>
+              </View>
               <StatusBadge status={caseData.status} />
             </View>
             <ThemedText style={styles.title}>{caseData.title}</ThemedText>
-            <View style={styles.metaRow}>
-              <Feather name="map-pin" size={14} color={Colors.dark.textSecondary} />
-              <ThemedText style={styles.metaText}>{caseData.location}</ThemedText>
+            <View style={styles.metaContainer}>
+              <View style={styles.metaRow}>
+                <Feather name="map-pin" size={14} color={Colors.dark.textTertiary} />
+                <ThemedText style={styles.metaText}>{caseData.location}</ThemedText>
+              </View>
+              <View style={styles.metaRow}>
+                <Feather name="user" size={14} color={Colors.dark.textTertiary} />
+                <ThemedText style={styles.metaText}>{caseData.leadOfficer}</ThemedText>
+              </View>
+              <View style={styles.metaRow}>
+                <Feather name="calendar" size={14} color={Colors.dark.textTertiary} />
+                <ThemedText style={styles.metaText}>
+                  {format(new Date(caseData.createdAt), "MMM d, yyyy")}
+                </ThemedText>
+              </View>
             </View>
-            <View style={styles.metaRow}>
-              <Feather name="user" size={14} color={Colors.dark.textSecondary} />
-              <ThemedText style={styles.metaText}>{caseData.leadOfficer}</ThemedText>
-              <View style={styles.dot} />
-              <Feather name="clock" size={14} color={Colors.dark.textSecondary} />
-              <ThemedText style={styles.metaText}>
-                {format(new Date(caseData.createdAt), "MMM d, yyyy")}
-              </ThemedText>
-            </View>
-          </View>
+          </Animated.View>
 
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
+          <Animated.View entering={FadeIn.duration(400).delay(100)} style={styles.statsRow}>
+            <View style={[styles.statCard, Shadows.md]}>
+              <View style={styles.statIconContainer}>
+                <Feather name="image" size={20} color={Colors.dark.accent} />
+              </View>
               <ThemedText style={styles.statValue}>{evidence.length}</ThemedText>
               <ThemedText style={styles.statLabel}>Evidence Items</ThemedText>
             </View>
-            <View style={styles.statCard}>
+            <View style={[styles.statCard, Shadows.md]}>
+              <View style={[styles.statIconContainer, { backgroundColor: "rgba(67, 160, 71, 0.15)" }]}>
+                <Feather name="activity" size={20} color={Colors.dark.success} />
+              </View>
               <ThemedText style={styles.statValue}>{activityLog.length}</ThemedText>
               <ThemedText style={styles.statLabel}>Activity Logs</ThemedText>
             </View>
-          </View>
+          </Animated.View>
 
-          <View style={styles.actions}>
-            <Button onPress={handleStartInvestigation} style={styles.investigateButton}>
+          <Animated.View entering={FadeIn.duration(400).delay(200)} style={styles.actions}>
+            <Button
+              onPress={handleStartInvestigation}
+              icon={<Feather name="camera" size={18} color={Colors.dark.text} />}
+            >
               Continue Investigation
             </Button>
             <View style={styles.actionRow}>
               <Button
                 onPress={handleGenerateReport}
-                style={styles.reportButton}
+                variant="secondary"
                 disabled={evidence.length === 0 || isGeneratingReport}
+                icon={<Feather name="file-text" size={18} color={Colors.dark.primary} />}
               >
-                {isGeneratingReport ? "Generating PDF..." : "Generate Report"}
+                {isGeneratingReport ? "Generating..." : "Generate Report"}
               </Button>
               <Pressable
                 onPress={() => {
@@ -332,17 +357,16 @@ export default function CaseDetailScreen() {
                 }}
                 style={styles.categoriesButton}
               >
-                <Feather name="layers" size={20} color={Colors.dark.accent} />
-                <ThemedText style={styles.categoriesButtonText}>Categories</ThemedText>
+                <MaterialCommunityIcons name="view-grid" size={20} color={Colors.dark.accent} />
               </Pressable>
             </View>
-          </View>
+          </Animated.View>
 
-          <View style={styles.tabBar}>
+          <Animated.View entering={FadeIn.duration(400).delay(300)} style={styles.tabBar}>
             {renderTabButton("timeline", "Timeline", "clock")}
             {renderTabButton("evidence", "Evidence", "image")}
             {renderTabButton("activity", "Activity", "activity")}
-          </View>
+          </Animated.View>
 
           {activeTab === "timeline" && renderTimelineContent()}
           {activeTab === "evidence" && renderEvidenceContent()}
@@ -358,7 +382,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.screenPadding,
   },
   loadingText: {
     textAlign: "center",
@@ -366,24 +390,35 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
   },
   header: {
-    marginBottom: Spacing.lg,
-    gap: Spacing.xs,
+    marginBottom: Spacing.xl,
+    gap: Spacing.md,
   },
   caseIdRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
+  caseIdBadge: {
+    backgroundColor: "rgba(0, 176, 255, 0.1)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+  },
   caseId: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
     color: Colors.dark.accent,
-    fontFamily: Fonts?.mono,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    letterSpacing: 0.5,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "700",
     color: Colors.dark.text,
+    lineHeight: 34,
+  },
+  metaContainer: {
+    gap: Spacing.sm,
   },
   metaRow: {
     flexDirection: "row",
@@ -391,116 +426,99 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   metaText: {
-    fontSize: 13,
-    color: Colors.dark.textSecondary,
-  },
-  dot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: Colors.dark.textSecondary,
-    marginHorizontal: Spacing.sm,
+    fontSize: 14,
+    color: Colors.dark.textTertiary,
   },
   statsRow: {
     flexDirection: "row",
     gap: Spacing.md,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.xl,
   },
   statCard: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundDefault,
-    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: Colors.dark.border,
     padding: Spacing.lg,
     alignItems: "center",
-    gap: Spacing.xs,
+    gap: Spacing.sm,
+  },
+  statIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.md,
+    backgroundColor: "rgba(0, 176, 255, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   statValue: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "700",
     color: Colors.dark.text,
   },
   statLabel: {
     fontSize: 12,
-    color: Colors.dark.textSecondary,
+    color: Colors.dark.textTertiary,
+    fontWeight: "500",
   },
   actions: {
     gap: Spacing.md,
     marginBottom: Spacing.xl,
-  },
-  investigateButton: {
-    backgroundColor: Colors.dark.success,
-  },
-  reportButton: {
-    flex: 1,
-    backgroundColor: Colors.dark.primary,
   },
   actionRow: {
     flexDirection: "row",
     gap: Spacing.md,
   },
   categoriesButton: {
-    flexDirection: "row",
+    width: 52,
+    height: 52,
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundDefault,
-    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.dark.accent,
-  },
-  categoriesButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.dark.accent,
+    borderColor: "rgba(0, 176, 255, 0.3)",
   },
   tabBar: {
     flexDirection: "row",
-    backgroundColor: Colors.dark.backgroundDefault,
-    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
     padding: Spacing.xs,
     marginBottom: Spacing.lg,
+    gap: Spacing.xs,
   },
   tabButton: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.xs,
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
   },
   tabButtonActive: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Colors.dark.backgroundTertiary,
   },
   tabLabel: {
     fontSize: 13,
-    fontWeight: "500",
-    color: Colors.dark.textSecondary,
+    fontWeight: "600",
+    color: Colors.dark.textTertiary,
   },
   tabLabelActive: {
-    color: Colors.dark.accent,
+    color: Colors.dark.primary,
   },
   tabContent: {
     minHeight: 200,
   },
-  listContent: {
-    gap: Spacing.md,
-  },
-  separator: {
-    height: Spacing.md,
-  },
   filterScroll: {
     marginBottom: Spacing.lg,
-    marginHorizontal: -Spacing.lg,
+    marginHorizontal: -Spacing.screenPadding,
   },
   filterContainer: {
     flexDirection: "row",
     gap: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.screenPadding,
   },
   filterButton: {
     flexDirection: "row",
@@ -508,19 +526,19 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderWidth: 1,
     borderColor: Colors.dark.border,
   },
   filterButtonActive: {
-    backgroundColor: Colors.dark.accent,
-    borderColor: Colors.dark.accent,
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
   },
   filterLabel: {
     fontSize: 12,
-    fontWeight: "500",
-    color: Colors.dark.textSecondary,
+    fontWeight: "600",
+    color: Colors.dark.textTertiary,
   },
   filterLabelActive: {
     color: Colors.dark.buttonText,
@@ -535,13 +553,21 @@ const styles = StyleSheet.create({
   },
   emptyTabText: {
     textAlign: "center",
-    color: Colors.dark.textSecondary,
-    marginTop: Spacing.lg,
+    color: Colors.dark.textTertiary,
+    fontSize: 14,
   },
   emptyFilterState: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: Spacing["3xl"],
-    gap: Spacing.md,
+    paddingVertical: Spacing["4xl"],
+    gap: Spacing.lg,
+  },
+  emptyIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

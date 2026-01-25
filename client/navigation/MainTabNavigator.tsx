@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { HeaderButton } from "@react-navigation/elements";
 import { BlurView } from "expo-blur";
-import { Platform, StyleSheet } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
@@ -13,8 +13,7 @@ import InvestigationScreen from "@/screens/InvestigationScreen";
 import ReportsScreen from "@/screens/ReportsScreen";
 import ProfileScreen from "@/screens/ProfileScreen";
 import { HeaderTitle } from "@/components/HeaderTitle";
-import { useScreenOptions } from "@/hooks/useScreenOptions";
-import { Colors } from "@/constants/theme";
+import { Colors, BorderRadius, Spacing } from "@/constants/theme";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 export type MainTabParamList = {
@@ -38,40 +37,55 @@ function CasesHeaderRight() {
         navigation.navigate("NewCase");
       }}
     >
-      <Feather name="plus" size={22} color={Colors.dark.accent} />
+      <Feather name="plus" size={22} color={Colors.dark.primary} />
     </HeaderButton>
   );
 }
 
 export default function MainTabNavigator() {
-  const screenOptions = useScreenOptions();
-
   return (
     <Tab.Navigator
       initialRouteName="CasesTab"
       screenOptions={{
-        tabBarActiveTintColor: Colors.dark.accent,
-        tabBarInactiveTintColor: Colors.dark.tabIconDefault,
+        headerTitleAlign: "center",
+        headerTransparent: true,
+        headerTintColor: Colors.dark.text,
+        headerStyle: {
+          backgroundColor: Platform.select({
+            ios: undefined,
+            android: Colors.dark.backgroundRoot,
+            web: Colors.dark.backgroundRoot,
+          }),
+        },
+        tabBarActiveTintColor: Colors.dark.primary,
+        tabBarInactiveTintColor: Colors.dark.textTertiary,
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "600",
+        },
         tabBarStyle: {
           position: "absolute",
           backgroundColor: Platform.select({
             ios: "transparent",
-            android: Colors.dark.backgroundRoot,
-            web: Colors.dark.backgroundRoot,
+            android: "rgba(30, 37, 48, 0.95)",
+            web: "rgba(30, 37, 48, 0.95)",
           }),
           borderTopWidth: 1,
           borderTopColor: Colors.dark.border,
           elevation: 0,
+          height: Platform.select({ ios: 88, android: 70, web: 70 }),
+          paddingTop: Spacing.sm,
         },
         tabBarBackground: () =>
           Platform.OS === "ios" ? (
             <BlurView
-              intensity={100}
+              intensity={80}
               tint="dark"
-              style={StyleSheet.absoluteFill}
+              style={[StyleSheet.absoluteFill, styles.tabBarBlur]}
             />
-          ) : null,
-        ...screenOptions,
+          ) : (
+            <View style={[StyleSheet.absoluteFill, styles.tabBarAndroid]} />
+          ),
       }}
     >
       <Tab.Screen
@@ -81,8 +95,10 @@ export default function MainTabNavigator() {
           title: "Cases",
           headerTitle: () => <HeaderTitle title="Cases" />,
           headerRight: () => <CasesHeaderRight />,
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="folder" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <View style={[styles.tabIconContainer, focused && styles.tabIconContainerActive]}>
+              <Feather name="folder" size={size - 2} color={color} />
+            </View>
           ),
         }}
       />
@@ -92,8 +108,10 @@ export default function MainTabNavigator() {
         options={{
           title: "Investigate",
           headerTitle: () => <HeaderTitle title="Investigation" showIcon={false} />,
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="camera" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <View style={[styles.tabIconContainer, focused && styles.tabIconContainerActive]}>
+              <Feather name="camera" size={size - 2} color={color} />
+            </View>
           ),
         }}
       />
@@ -103,8 +121,10 @@ export default function MainTabNavigator() {
         options={{
           title: "Reports",
           headerTitle: () => <HeaderTitle title="Reports" showIcon={false} />,
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="file-text" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <View style={[styles.tabIconContainer, focused && styles.tabIconContainerActive]}>
+              <Feather name="file-text" size={size - 2} color={color} />
+            </View>
           ),
         }}
       />
@@ -114,11 +134,35 @@ export default function MainTabNavigator() {
         options={{
           title: "Profile",
           headerTitle: () => <HeaderTitle title="Profile" showIcon={false} />,
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="user" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <View style={[styles.tabIconContainer, focused && styles.tabIconContainerActive]}>
+              <Feather name="user" size={size - 2} color={color} />
+            </View>
           ),
         }}
       />
     </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBarBlur: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  tabBarAndroid: {
+    backgroundColor: "rgba(30, 37, 48, 0.95)",
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  tabIconContainer: {
+    width: 40,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: BorderRadius.md,
+  },
+  tabIconContainerActive: {
+    backgroundColor: "rgba(41, 98, 255, 0.15)",
+  },
+});
