@@ -1,0 +1,109 @@
+3. Timeline Visualization UI:
+
+Create new "Timeline" tab in Case Detail screen
+Display horizontal timeline bar representing full video duration
+Calculate total video duration from case data
+Add photo markers on timeline at their relative positions
+Example: If video is 3600 seconds (1 hour) and photo taken at 900 seconds (15 min), marker appears at 25% position on timeline bar
+
+4. Timeline Bar Design:
+
+Professional progress bar style showing video length
+Tick marks every 5 or 10 minutes
+Time labels (00:00, 05:00, 10:00, etc.)
+Photo markers as clickable pins/icons positioned precisely
+Each marker shows small thumbnail preview on hover/tap
+Color-code markers by evidence type (weapons=red, persons=blue, etc.)
+
+5. Video Player Integration:
+
+Integrate ExoPlayer in Timeline view
+Load the case's video file
+Custom seekbar with photo markers overlaid
+When video plays:
+
+Highlight current position on timeline
+Auto-highlight photo marker when video reaches that timestamp
+Show "Photo taken here" indicator briefly
+
+
+Tap on any photo marker → video jumps to that exact second
+Implement smooth seeking to timestamp
+
+6. Photo-Video Sync Display:
+
+Below video player, show scrollable horizontal list of photo thumbnails
+Order chronologically by relativeTimestamp
+Each thumbnail displays:
+
+Thumbnail image
+Timecode (e.g., "05:23" meaning 5 minutes 23 seconds into video)
+Absolute time (e.g., "14:35:22")
+
+
+Tap thumbnail → video seeks to that moment AND shows photo in split view
+
+7. Split-Screen Mode:
+
+Toggle button for split-screen layout
+Top half: Video player with timeline
+Bottom half: Current synced photo enlarged
+As video plays, bottom photo automatically updates when passing photo markers
+Allows comparing video context with still photo evidence
+
+8. Timeline Detail View:
+
+Expandable list showing all events chronologically:
+
+"Investigation Started - 14:30:00"
+"Photo 1 captured - 14:32:15 (02:15 into recording)"
+"Photo 2 captured - 14:35:47 (05:47 into recording)"
+"Investigation Ended - 15:15:30"
+
+
+Each event clickable to jump to that moment
+Include AI detection summaries in timeline events
+
+9. Timecode Formatting:
+
+Create utility function to format seconds into MM:SS or HH:MM:SS
+Display consistently across all UI elements
+Show both relative timecode and absolute clock time
+Example display: "Photo taken at 14:35:22 (5m 47s into investigation)"
+
+10. Video Playback Controls:
+
+Standard controls: play/pause, seek, volume
+Additional controls:
+
+"Next Evidence" button - jump to next photo marker
+"Previous Evidence" button - jump to previous photo marker
+Playback speed control (0.5x, 1x, 2x)
+Frame-by-frame stepping (for precise review)
+Fullscreen mode
+
+
+
+11. Synchronization Accuracy:
+
+Ensure photo capture timestamp is recorded IMMEDIATELY when shutter pressed
+Account for any camera processing delays
+Display accuracy indicator if timestamp precision is degraded
+Handle edge cases: photos taken before/after video recording
+
+12. Export Timeline Data:
+
+Generate timeline visualization for PDF report
+Include timeline graphic showing all photo positions
+List all events with precise timestamps
+Prepare data for legal documentation
+
+Implementation Notes:
+
+Use Kotlin Coroutines for smooth video operations
+Implement proper lifecycle management for ExoPlayer (release resources)
+Cache video frames near photo timestamps for instant display
+Optimize for large video files (multi-hour recordings)
+Handle video codec compatibility across Android devices
+
+Provide production-ready code with proper architecture (ViewModel, R

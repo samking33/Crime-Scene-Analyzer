@@ -58,6 +58,8 @@ export default function InvestigationScreen() {
   const cameraRef = useRef<CameraView>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
+  const videoRecordingStartTimeRef = useRef<number>(0);
+  const [isBackgroundRecording, setIsBackgroundRecording] = useState(false);
 
   const zoom = useSharedValue(0);
   const savedZoom = useSharedValue(0);
@@ -162,25 +164,95 @@ export default function InvestigationScreen() {
     
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setIsRecording(true);
-    await updateCase(activeCase.id, { status: "active" });
+    
+    const investigationStartTime = new Date().toISOString();
+    const videoStartTimestamp = Date.now();
+    videoRecordingStartTimeRef.current = videoStartTimestamp;
+    
+    await updateCase(activeCase.id, { 
+      status: "active",
+      investigationStartTime,
+      videoRecordingStartTime: videoStartTimestamp,
+    });
     const profile = await getProfile();
     await logActivity(activeCase.id, "Investigation started", profile.name, "Background recording initiated");
-    setActiveCaseData({ ...activeCase, status: "active" });
+    setActiveCaseData({ 
+      ...activeCase, 
+      status: "active",
+      investigationStartTime,
+      videoRecordingStartTime: videoStartTimestamp,
+    });
+    
+    startBackgroundVideoRecording();
+  };
+
+  const startBackgroundVideoRecording = async () => {
+    if (!cameraRef.current || isBackgroundRecording) return;
+    
+    try {
+      setIsBackgroundRecording(true);
+      const video = await cameraRef.current.recordAsync({
+        maxDuration: 7200,
+      });
+      
+      if (video && activeCase) {
+        const endTime = Date.now();
+        const duration = (endTime - videoRecordingStartTimeRef.current) / 1000;
+        
+        await updateCase(activeCase.id, {
+          backgroundVideoUri: video.uri,
+          backgroundVideoDuration: duration,
+          videoRecordingEndTime: endTime,
+        });
+        
+        const updatedCase = await getCase(activeCase.id);
+        if (updatedCase) setActiveCaseData(updatedCase);
+      }
+    } catch (error) {
+      console.error("Background video recording failed:", error);
+    } finally {
+      setIsBackgroundRecording(false);
+    }
+  };
+
+  const stopBackgroundVideoRecording = () => {
+    if (!cameraRef.current) return;
+    try {
+      cameraRef.current.stopRecording();
+    } catch (error) {
+      console.error("Failed to stop background recording:", error);
+    }
   };
 
   const handleStopInvestigation = async () => {
     if (!activeCase) return;
     
     if (isVideoRecording) {
-      await handleStopVideoRecording();
+      handleStopVideoRecording();
     }
+    
+    if (isBackgroundRecording) {
+      stopBackgroundVideoRecording();
+    }
+    
+    const investigationEndTime = new Date().toISOString();
+    const videoEndTimestamp = Date.now();
     
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     setIsRecording(false);
-    await updateCase(activeCase.id, { status: "pending" });
+    await updateCase(activeCase.id, { 
+      status: "pending",
+      investigationEndTime,
+      videoRecordingEndTime: videoEndTimestamp,
+    });
     const profile = await getProfile();
     await logActivity(activeCase.id, "Investigation stopped", profile.name, `Recording duration: ${recordingDuration}`);
-    setActiveCaseData({ ...activeCase, status: "pending" });
+    setActiveCaseData({ 
+      ...activeCase, 
+      status: "pending",
+      investigationEndTime,
+      videoRecordingEndTime: videoEndTimestamp,
+    });
   };
 
   const getCurrentLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
@@ -207,6 +279,10 @@ export default function InvestigationScreen() {
     
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      
+      const captureTime = Date.now();
+      const captureTimestamp = new Date().toISOString();
+      
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.7,
         base64: true,
@@ -216,11 +292,20 @@ export default function InvestigationScreen() {
       const location = await getCurrentLocation();
       const profile = await getProfile();
       
+      let relativeTimestamp: number | undefined;
+      if (videoRecordingStartTimeRef.current > 0) {
+        relativeTimestamp = (captureTime - videoRecordingStartTimeRef.current) / 1000;
+      } else if (activeCase.videoRecordingStartTime) {
+        relativeTimestamp = (captureTime - activeCase.videoRecordingStartTime) / 1000;
+      }
+      
       const newEvidence = await addEvidence({
         caseId: activeCase.id,
         type: "photo",
         uri: photo.uri,
-        timestamp: new Date().toISOString(),
+        timestamp: captureTimestamp,
+        absoluteTimestamp: captureTime,
+        relativeTimestamp,
         latitude: location?.latitude,
         longitude: location?.longitude,
       });
@@ -265,6 +350,8 @@ export default function InvestigationScreen() {
   const handleStartVideoRecording = async () => {
     if (!activeCase || !cameraRef.current || isVideoRecording) return;
     
+    const recordStartTime = Date.now();
+    
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       setIsVideoRecording(true);
@@ -274,14 +361,25 @@ export default function InvestigationScreen() {
       });
       
       if (video) {
+        const recordEndTime = Date.now();
         const location = await getCurrentLocation();
         const profile = await getProfile();
+        
+        let relativeTimestamp: number | undefined;
+        if (videoRecordingStartTimeRef.current > 0) {
+          relativeTimestamp = (recordStartTime - videoRecordingStartTimeRef.current) / 1000;
+        } else if (activeCase.videoRecordingStartTime) {
+          relativeTimestamp = (recordStartTime - activeCase.videoRecordingStartTime) / 1000;
+        }
         
         await addEvidence({
           caseId: activeCase.id,
           type: "video",
           uri: video.uri,
-          timestamp: new Date().toISOString(),
+          timestamp: new Date(recordStartTime).toISOString(),
+          absoluteTimestamp: recordStartTime,
+          relativeTimestamp,
+          duration: (recordEndTime - recordStartTime) / 1000,
           latitude: location?.latitude,
           longitude: location?.longitude,
         });
