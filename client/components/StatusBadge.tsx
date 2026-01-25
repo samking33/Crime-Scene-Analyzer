@@ -1,11 +1,12 @@
 import React from "react";
 import { View, StyleSheet, ViewStyle } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, BorderRadius, Spacing } from "@/constants/theme";
+import { Colors, BorderRadius, Spacing, ForensicColors } from "@/constants/theme";
 import type { CaseStatus, ConfidenceLevel } from "@/types/case";
 
 interface StatusBadgeProps {
-  status: CaseStatus;
+  status: CaseStatus | "recording";
   size?: "sm" | "md";
 }
 
@@ -18,6 +19,8 @@ export function StatusBadge({ status, size = "md" }: StatusBadgeProps) {
         return Colors.dark.neutral;
       case "pending":
         return Colors.dark.warning;
+      case "recording":
+        return ForensicColors.statusRed;
       default:
         return Colors.dark.neutral;
     }
@@ -31,19 +34,23 @@ export function StatusBadge({ status, size = "md" }: StatusBadgeProps) {
         return "Closed";
       case "pending":
         return "Pending";
+      case "recording":
+        return "REC";
       default:
         return status;
     }
   };
 
   const color = getStatusColor();
+  const isRecording = status === "recording";
 
   return (
     <View
       style={[
         styles.badge,
         size === "sm" && styles.badgeSm,
-        { backgroundColor: `${color}15` },
+        { backgroundColor: `${color}20` },
+        isRecording && styles.recordingBadge,
       ]}
     >
       <View style={[styles.dot, size === "sm" && styles.dotSm, { backgroundColor: color }]} />
@@ -52,6 +59,19 @@ export function StatusBadge({ status, size = "md" }: StatusBadgeProps) {
       >
         {getStatusLabel()}
       </ThemedText>
+    </View>
+  );
+}
+
+interface RecordingBadgeProps {
+  time: string;
+}
+
+export function RecordingBadge({ time }: RecordingBadgeProps) {
+  return (
+    <View style={styles.recordingTimeBadge}>
+      <View style={styles.recordingDot} />
+      <ThemedText style={styles.recordingTimeText}>{time}</ThemedText>
     </View>
   );
 }
@@ -86,7 +106,7 @@ export function ConfidenceBadge({ confidence, size = "md" }: ConfidenceBadgeProp
       style={[
         styles.badge,
         size === "sm" && styles.badgeSm,
-        { backgroundColor: `${color}15` },
+        { backgroundColor: `${color}20` },
       ]}
     >
       <View style={[styles.dot, size === "sm" && styles.dotSm, { backgroundColor: color }]} />
@@ -110,7 +130,7 @@ export function AnalysisBadge({ status, size = "md" }: AnalysisBadgeProps) {
       case "completed":
         return Colors.dark.success;
       case "analyzing":
-        return Colors.dark.accent;
+        return Colors.dark.primary;
       case "failed":
         return Colors.dark.error;
       case "pending":
@@ -140,7 +160,7 @@ export function AnalysisBadge({ status, size = "md" }: AnalysisBadgeProps) {
       style={[
         styles.badge,
         size === "sm" && styles.badgeSm,
-        { backgroundColor: `${color}15` },
+        { backgroundColor: `${color}20` },
       ]}
     >
       <View style={[styles.dot, size === "sm" && styles.dotSm, { backgroundColor: color }]} />
@@ -148,6 +168,44 @@ export function AnalysisBadge({ status, size = "md" }: AnalysisBadgeProps) {
         style={[styles.text, size === "sm" && styles.textSm, { color }]}
       >
         {getStatusLabel()}
+      </ThemedText>
+    </View>
+  );
+}
+
+interface EvidenceTypeBadgeProps {
+  type: "photo" | "video" | "audio" | "note";
+  size?: "sm" | "md";
+}
+
+export function EvidenceTypeBadge({ type, size = "md" }: EvidenceTypeBadgeProps) {
+  const getTypeColor = () => {
+    switch (type) {
+      case "photo":
+        return Colors.dark.primary;
+      case "video":
+        return ForensicColors.statusRed;
+      case "audio":
+        return Colors.dark.success;
+      case "note":
+        return Colors.dark.accent;
+      default:
+        return Colors.dark.neutral;
+    }
+  };
+
+  const color = getTypeColor();
+
+  return (
+    <View
+      style={[
+        styles.typeBadge,
+        size === "sm" && styles.typeBadgeSm,
+        { backgroundColor: `${color}20` },
+      ]}
+    >
+      <ThemedText style={[styles.typeText, size === "sm" && styles.typeTextSm, { color }]}>
+        {type.toUpperCase()}
       </ThemedText>
     </View>
   );
@@ -202,6 +260,9 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     gap: Spacing.xs,
   },
+  recordingBadge: {
+    backgroundColor: ForensicColors.statusRed,
+  },
   dot: {
     width: 6,
     height: 6,
@@ -220,6 +281,45 @@ const styles = StyleSheet.create({
   },
   textSm: {
     fontSize: 10,
+  },
+  recordingTimeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: ForensicColors.statusRed,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    gap: Spacing.sm,
+  },
+  recordingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#FFFFFF",
+  },
+  recordingTimeText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    fontFamily: "monospace",
+  },
+  typeBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  typeBadgeSm: {
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 1,
+    borderRadius: BorderRadius.xs,
+  },
+  typeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  typeTextSm: {
+    fontSize: 9,
   },
   categoryBadge: {
     flexDirection: "row",

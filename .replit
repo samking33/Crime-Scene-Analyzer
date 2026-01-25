@@ -3,7 +3,7 @@ modules = ["nodejs-22"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["libuuid", "pkg-config", "cairo", "pango", "libjpeg", "giflib", "librsvg", "pixman"]
+packages = ["libuuid", "pkg-config", "cairo", "pango", "libjpeg", "giflib", "librsvg", "pixman", "unzip"]
 
 [deployment]
 deploymentTarget = "cloudrun"
