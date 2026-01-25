@@ -1,5 +1,4 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { v4 as uuidv4 } from "uuid";
 import type { Case, Evidence, ActivityLog, Report, OfficerProfile } from "@/types/case";
 
 const CASES_KEY = "@cases";
@@ -8,6 +7,10 @@ const ACTIVITY_LOG_KEY = "@activity_log";
 const REPORTS_KEY = "@reports";
 const PROFILE_KEY = "@profile";
 const ACTIVE_CASE_KEY = "@active_case";
+
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 15);
+}
 
 function generateCaseId(): string {
   const year = new Date().getFullYear();
@@ -33,7 +36,7 @@ export async function createCase(data: { title: string; location: string; leadOf
   const cases = await getCases();
   const now = new Date().toISOString();
   const newCase: Case = {
-    id: uuidv4(),
+    id: generateId(),
     caseId: generateCaseId(),
     title: data.title,
     location: data.location,
@@ -107,7 +110,7 @@ export async function addEvidence(evidence: Omit<Evidence, "id">): Promise<Evide
   const allEvidence = await getAllEvidence();
   const newEvidence: Evidence = {
     ...evidence,
-    id: uuidv4(),
+    id: generateId(),
   };
   allEvidence.push(newEvidence);
   await AsyncStorage.setItem(EVIDENCE_KEY, JSON.stringify(allEvidence));
@@ -137,7 +140,7 @@ export async function logActivity(caseId: string, action: string, officerName: s
     const data = await AsyncStorage.getItem(ACTIVITY_LOG_KEY);
     const logs: ActivityLog[] = data ? JSON.parse(data) : [];
     logs.push({
-      id: uuidv4(),
+      id: generateId(),
       caseId,
       action,
       timestamp: new Date().toISOString(),
@@ -163,7 +166,7 @@ export async function createReport(caseData: Case): Promise<Report> {
   const reports = await getReports();
   const evidence = await getEvidence(caseData.id);
   const newReport: Report = {
-    id: uuidv4(),
+    id: generateId(),
     caseId: caseData.id,
     caseTitle: caseData.title,
     generatedAt: new Date().toISOString(),
