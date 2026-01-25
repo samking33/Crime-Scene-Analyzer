@@ -208,7 +208,7 @@ export default function InvestigationScreen() {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.9,
+        quality: 0.7,
         base64: true,
       });
       if (!photo) return;
@@ -293,14 +293,15 @@ export default function InvestigationScreen() {
     }
   };
 
-  const handleStopVideoRecording = async () => {
-    if (!cameraRef.current || !isVideoRecording) return;
+  const handleStopVideoRecording = () => {
+    if (!cameraRef.current) return;
     
     try {
-      await cameraRef.current.stopRecording();
+      cameraRef.current.stopRecording();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error("Failed to stop recording:", error);
+      setIsVideoRecording(false);
     }
   };
 
