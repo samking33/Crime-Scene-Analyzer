@@ -15,6 +15,7 @@ import { EvidenceCard } from "@/components/EvidenceCard";
 import { ActivityItem } from "@/components/ActivityItem";
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
+import { TimelineView } from "@/components/TimelineView";
 import { Colors, Spacing, BorderRadius, Fonts } from "@/constants/theme";
 import { getCase, getEvidence, getActivityLog, setActiveCase, createReport, updateReport, getProfile } from "@/lib/storage";
 import { getApiUrl } from "@/lib/query-client";
@@ -189,24 +190,19 @@ export default function CaseDetailScreen() {
 
   const renderTimelineContent = () => (
     <View style={styles.tabContent}>
-      {evidence.length === 0 ? (
+      {evidence.length === 0 && !caseData.backgroundVideoUri ? (
         <EmptyState
           image={require("../../assets/images/empty-investigation.png")}
-          title="No Evidence Yet"
-          description="Start an investigation to capture evidence"
+          title="No Timeline Data"
+          description="Start an investigation with background recording to capture timeline data"
           actionLabel="Begin Investigation"
           onAction={handleStartInvestigation}
         />
       ) : (
-        <FlatList
-          data={evidence}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <EvidenceCard evidence={item} onPress={() => handleEvidencePress(item)} />
-          )}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          contentContainerStyle={styles.listContent}
-          scrollEnabled={false}
+        <TimelineView
+          caseData={caseData}
+          evidence={evidence}
+          onEvidencePress={handleEvidencePress}
         />
       )}
     </View>

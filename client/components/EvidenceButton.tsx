@@ -17,6 +17,7 @@ interface EvidenceButtonProps {
   onPress: () => void;
   variant?: "primary" | "secondary";
   disabled?: boolean;
+  testID?: string;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -27,6 +28,7 @@ export function EvidenceButton({
   onPress,
   variant = "secondary",
   disabled = false,
+  testID,
 }: EvidenceButtonProps) {
   const scale = useSharedValue(1);
 
@@ -59,6 +61,7 @@ export function EvidenceButton({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled}
+      testID={testID}
       style={[
         styles.button,
         isPrimary ? styles.primaryButton : styles.secondaryButton,
