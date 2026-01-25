@@ -1,173 +1,254 @@
-# Smart Crime Scene Investigation App - Design Guidelines
+# Smart Crime Scene Investigation App - Premium Design Guidelines
 
 ## Brand Identity
 
 **Purpose**: Professional evidence documentation tool for law enforcement first responders, replacing body-worn cameras while providing comprehensive crime scene investigation capabilities.
 
-**Visual Direction**: **Utilitarian/Government** - This is a serious forensic tool, not a consumer app. Think police dashboards, military command interfaces, and forensic lab software. Clean, hierarchical, data-dense, and trustworthy. Dark theme optimized for field use with high legibility in various lighting conditions.
+**Visual Direction**: **Premium Tactical Interface** - Inspired by enterprise design systems like Figma, Linear, Stripe Dashboard, and Apple Health. Dark theme optimized for field use with exceptional legibility, sophisticated depth, and precise hierarchy.
 
-**Memorable Element**: The synchronized evidence timeline - a visual representation showing background video recording with pinned evidence markers that reveal exactly what was captured when. This is the app's signature feature.
+**Design Pillars**:
+1. **Clarity** - Information hierarchy with subtle depth cues
+2. **Efficiency** - Minimal clicks, maximum data density
+3. **Trust** - Professional, authoritative visual language
+4. **Precision** - Exact spacing, consistent components
 
-## Navigation Architecture
+**Memorable Element**: The synchronized evidence timeline with AI-powered object detection overlays.
 
-**Root Navigation**: Bottom Tab Bar (4 tabs)
-- **Cases** - Browse and manage all investigation cases
-- **Investigation** - Active investigation screen (disabled when no active case)
-- **Reports** - Generated PDF reports and analytics
-- **Profile** - Officer profile, settings, chain of custody logs
+## Color System
 
-**Authentication**: Required (SSO preferred - Google Sign-In for Android departments)
+### Primary Palette
+| Name | Value | Usage |
+|------|-------|-------|
+| **Primary** | #2962FF | CTAs, active states, links, focus rings |
+| **Accent** | #00B0FF | Secondary actions, highlights, info badges |
+| **Background Root** | #0A1929 | App background |
+| **Background Secondary** | #1E2530 | Cards, elevated surfaces |
+| **Background Tertiary** | #2A3544 | Nested elements, hover states |
 
-## Screen-by-Screen Specifications
+### Semantic Colors
+| Name | Value | Usage |
+|------|-------|-------|
+| **Success** | #43A047 | Completed, GPS lock, online |
+| **Warning** | #FFA726 | Caution, pending states |
+| **Error** | #EF5350 | Errors, delete, recording |
+| **Neutral** | #78909C | Disabled, inactive |
 
-### Login Screen
-- **Layout**: Centered login form, non-scrollable
-- **Header**: None
-- **Components**: 
-  - App icon and "Official Use Only" badge
-  - Google Sign-In button
-  - Terms of Service/Privacy Policy links (bottom)
-- **Safe Area**: Full screen with insets.bottom + Spacing.xl
+### Text Colors
+| Name | Value | Usage |
+|------|-------|-------|
+| **Text Primary** | #FFFFFF | Headings, primary content |
+| **Text Secondary** | #B8C5D3 | Body text, descriptions |
+| **Text Tertiary** | #7B8A9A | Labels, timestamps, hints |
+| **Text Disabled** | #4A5568 | Disabled text |
 
-### Cases Screen (Home Tab)
-- **Layout**: Default navigation header with search, scrollable list below
-- **Header**: 
-  - Title: "Cases"
-  - Right button: "+" New Case
-  - Search bar embedded
-- **Main Content**: 
-  - List of case cards showing: Case ID, title, date, status badge, thumbnail
-  - Empty state if no cases
-- **Safe Area**: Bottom inset = tabBarHeight + Spacing.xl, top inset = Spacing.xl
+### Surface & Borders
+| Name | Value | Usage |
+|------|-------|-------|
+| **Border** | rgba(255,255,255,0.08) | Card borders, dividers |
+| **Border Focused** | rgba(41,98,255,0.5) | Input focus states |
 
-### New Case Screen (Modal)
-- **Layout**: Scrollable form
-- **Header**: 
-  - Left: Cancel
-  - Title: "New Case"
-  - Right: "Create" (disabled until form valid)
-- **Form Fields**:
-  - Case title (text input)
-  - Location (auto-populated from GPS with manual override)
-  - Lead officer (auto-populated from profile)
-  - Case ID (auto-generated, read-only, displayed)
-- **Safe Area**: Standard modal insets
+### Gradient Colors
+| Name | Values | Usage |
+|------|--------|-------|
+| **Primary Gradient** | #2962FF → #1E88E5 | Primary buttons, FAB |
+| **Accent Gradient** | #00B0FF → #0091EA | Secondary highlights |
+| **Success Gradient** | #43A047 → #2E7D32 | Success states |
+| **Error Gradient** | #EF5350 → #D32F2F | Recording indicators |
 
-### Investigation Screen (Active Tab)
-**When No Active Case**:
-- Empty state with illustration
-- Text: "No active investigation"
-- Button: "Select a case to begin"
+## Typography Scale
 
-**When Case Active**:
-- **Layout**: Custom header (transparent), scrollable content, floating action buttons
-- **Header**:
-  - Left: Back to cases
-  - Title: Case ID
-  - Right: Stop recording (red icon)
-  - Recording indicator (pulsing red dot + duration timer)
-- **Main Content**:
-  - Live video preview (small, top section)
-  - Evidence capture controls (large buttons):
-    - Capture Photo
-    - Add Text Note
-    - Record Audio Note
-  - Recently captured evidence (horizontal scrolling cards)
-- **Floating Elements**:
-  - Evidence count badge (top right)
-  - GPS accuracy indicator (if poor signal)
-- **Safe Area**: Top inset = headerHeight + Spacing.xl, bottom inset = tabBarHeight + Spacing.xl
+**Font Stack**: System fonts with -apple-system, BlinkMacSystemFont, Inter fallback
+
+| Name | Size | Weight | Usage |
+|------|------|--------|-------|
+| **Display** | 32px | Bold (700) | Hero titles |
+| **H1** | 28px | Bold (700) | Screen titles |
+| **H2** | 24px | Semibold (600) | Section headers |
+| **H3** | 20px | Semibold (600) | Card titles |
+| **H4** | 18px | Semibold (600) | Subsection headers |
+| **Body** | 16px | Regular (400) | Primary content |
+| **Body Small** | 14px | Regular (400) | Secondary content |
+| **Label** | 13px | Medium (500) | Buttons, labels |
+| **Caption** | 12px | Regular (400) | Timestamps, metadata |
+| **Overline** | 11px | Semibold (600) | Badges, tags |
+| **Mono** | 13px | Medium (500) | Case IDs, coordinates |
+
+## Spacing System (8pt Grid)
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| **xs** | 4px | Tight gaps |
+| **sm** | 8px | Component internal |
+| **md** | 12px | Related elements |
+| **lg** | 16px | Section gaps |
+| **xl** | 24px | Major sections |
+| **2xl** | 32px | Screen sections |
+| **3xl** | 48px | Large separations |
+| **4xl** | 64px | Hero spacing |
+| **screenPadding** | 20px | Horizontal margins |
+
+## Border Radius System
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| **xs** | 4px | Small badges |
+| **sm** | 6px | Buttons, inputs |
+| **md** | 8px | Small cards |
+| **lg** | 12px | Cards, modals |
+| **xl** | 16px | Large cards |
+| **2xl** | 20px | Sheets |
+| **full** | 9999px | Pills, avatars |
+
+## Shadow System
+
+### Elevation Levels
+| Level | Shadow Properties | Usage |
+|-------|-------------------|-------|
+| **xs** | offset(0,1), blur(2), opacity(0.06) | Subtle lift |
+| **sm** | offset(0,2), blur(4), opacity(0.08) | Cards |
+| **md** | offset(0,4), blur(8), opacity(0.12) | Elevated cards |
+| **lg** | offset(0,8), blur(16), opacity(0.16) | Modals |
+| **xl** | offset(0,12), blur(24), opacity(0.20) | Dropdowns |
+
+### Special Shadows
+| Name | Properties | Usage |
+|------|------------|-------|
+| **Primary Glow** | color(#2962FF), blur(12), opacity(0.4) | Primary buttons |
+| **Inner** | offset(0,1) inset, blur(2), opacity(0.1) | Pressed states |
+
+## Component Specifications
+
+### Button Variants
+| Variant | Background | Border | Text Color |
+|---------|------------|--------|------------|
+| **Primary** | Primary gradient | None | White |
+| **Secondary** | Transparent | 1.5px primary | Primary |
+| **Ghost** | Transparent | None | Text Secondary |
+| **Danger** | Error color | None | White |
+
+**Button Sizes**:
+- Default: height 52px, paddingH 24px
+- Small: height 40px, paddingH 16px
+- Large: height 56px, paddingH 32px
+
+### Card Variants
+| Variant | Border | Background | Shadow |
+|---------|--------|------------|--------|
+| **Default** | 1px border | backgroundSecondary | sm |
+| **Premium** | 1px border | backgroundSecondary | lg |
+| **Stat** | None | backgroundSecondary | md |
+| **Interactive** | 1px border | backgroundSecondary | md, scale animation |
+
+### Input States
+| State | Border Color | Background |
+|-------|--------------|------------|
+| **Default** | border | backgroundTertiary |
+| **Focused** | borderFocused (primary) | backgroundTertiary |
+| **Error** | error | backgroundTertiary |
+| **Disabled** | border (50% opacity) | backgroundSecondary |
+
+### Badge Variants
+| Variant | Background | Text |
+|---------|------------|------|
+| **Status Active** | success (15% opacity) | success |
+| **Status Pending** | warning (15% opacity) | warning |
+| **Status Closed** | neutral (15% opacity) | neutral |
+| **Confidence High** | success (15% opacity) | success |
+| **Confidence Medium** | warning (15% opacity) | warning |
+| **Confidence Low** | error (15% opacity) | error |
+
+## Animation Configuration
+
+### Spring Presets
+| Name | Damping | Stiffness | Usage |
+|------|---------|-----------|-------|
+| **Fast** | 15 | 200 | Button presses |
+| **Default** | 20 | 150 | General transitions |
+| **Slow** | 25 | 100 | Large movements |
+
+### Fade Animations
+| Type | Duration | Delay Pattern |
+|------|----------|---------------|
+| **FadeIn** | 400ms | - |
+| **Staggered List** | 400ms | index * 100ms |
+
+## Screen Layouts
+
+### Cases Screen (Home)
+- Stats grid: 2x2 StatCards showing Active Cases, Closed, Evidence Items, Total
+- Search bar with left icon
+- Section header with count badge
+- CaseCard list with staggered FadeIn
 
 ### Case Detail Screen
-- **Layout**: Tabs (horizontal) with scrollable content per tab
-- **Header**: 
-  - Left: Back
-  - Title: Case ID
-  - Right: Generate Report
-- **Tabs**:
-  1. **Timeline** - Chronological evidence list with video scrubber
-  2. **Map** - Interactive map with evidence pins
-  3. **Evidence** - Grid view of all photos/notes with AI tags
-  4. **Activity Log** - Chain of custody audit trail
-- **Safe Area**: Bottom inset = tabBarHeight + Spacing.xl
+- Animated header with case ID badge and status
+- Stats row: 2 stat cards (Evidence count, Activity count)
+- Action buttons: Continue Investigation (primary), Generate Report (secondary)
+- Tab bar: Timeline | Evidence | Activity
+- Filter chips for evidence types
 
-### Evidence Detail Screen
-- **Layout**: Full-screen image with overlay controls
-- **Header**: Transparent with back button
-- **Components**:
-  - Full-size evidence photo
-  - AI detection bounding boxes (toggleable)
-  - Metadata panel (bottom sheet): timestamp, GPS, detected objects, confidence scores
-  - Video sync button: "Jump to Video Moment"
-- **Safe Area**: Top/bottom full bleed with overlay controls
+### Investigation Screen
+- Camera preview with gesture controls (pinch zoom, double-tap)
+- Recording indicator with duration timer
+- Evidence capture buttons: Note, Photo (primary), Audio
+- Video recording toggle
+- Recently captured evidence carousel
 
-### Reports Screen
-- **Layout**: Default header, scrollable list
-- **Header**: Title: "Reports"
-- **Main Content**:
-  - List of generated PDF reports with preview thumbnails
-  - Filters: Date range, case status
-  - Empty state if no reports
-- **Safe Area**: Standard with tab bar
+### Evidence Viewer Screen
+- Full-screen image/video with gesture zoom
+- Floating header with back button and metadata
+- AI Analysis card with object detection stats
+- Original/Annotated toggle
+- Object details expandable list
 
-### Profile Screen
-- **Layout**: Scrollable settings list
-- **Header**: Title: "Profile"
-- **Components**:
-  - Officer badge/avatar (preset uniform icon)
-  - Name and badge number
-  - Department
-  - App settings: Dark mode (default on), notification preferences
-  - Chain of custody: "View My Activity Log"
-  - Account: Log out, Delete account (nested)
-- **Safe Area**: Standard with tab bar
+### Category Dashboard Screen
+- Summary gradient cards: Total Objects, Active Categories
+- 2-column category card grid
+- Category cards: icon, name, count, confidence badge
+- Priority badges for high-priority categories
 
-## Color Palette
+## Evidence Category Colors
 
-**Primary**: #1E3A5F (Navy Blue) - Professional, authoritative
-**Primary Variant**: #2D5280 (Lighter blue for active states)
-**Accent**: #FF5722 (Warning Orange) - Recording indicator, alerts
-**Background**: #0A0E14 (Near black) - Dark theme base
-**Surface**: #1A1F29 (Dark gray) - Cards, elevated elements
-**Surface Variant**: #252D3A (Lighter gray) - Input fields, disabled states
-**Text Primary**: #FFFFFF (White) - High contrast
-**Text Secondary**: #B0B8C3 (Light gray) - Metadata, timestamps
-**Success**: #4CAF50 (Green) - Completed actions, GPS lock
-**Warning**: #FFC107 (Amber) - Caution states
-**Error**: #F44336 (Red) - Errors, delete actions
-**Border**: #2A3444 (Subtle divider)
+| Category | Color | Priority |
+|----------|-------|----------|
+| Weapons | #D32F2F | 1 (High) |
+| Vehicles | #F57C00 | 2 (High) |
+| Persons | #1976D2 | 3 |
+| Biometrics | #7B1FA2 | 4 |
+| Drugs/Substances | #C62828 | 5 |
+| Documents | #388E3C | 6 |
+| Electronics | #00796B | 7 |
+| Evidence Markers | #FBC02D | 8 |
+| Tools | #5D4037 | 9 |
+| Other | #616161 | 10 |
 
-## Typography
+## Tab Bar Design
 
-**Font**: System font (Roboto on Android) - Maximum legibility for official use
-**Scale**:
-- Display: 32px Bold - Screen titles
-- Headline: 24px Bold - Section headers
-- Title: 20px Medium - Card titles, Case IDs
-- Body: 16px Regular - Primary content
-- Label: 14px Medium - Buttons, metadata
-- Caption: 12px Regular - Timestamps, fine print
-**Monospace** (for Case IDs, timestamps): Roboto Mono
+- Blur background on iOS
+- Active tab: Primary color text, subtle background highlight
+- Inactive tab: Tertiary text color
+- Icon containers with rounded background on active state
 
-## Visual Design
+## FAB (Floating Action Button)
 
-- **Icons**: Material Icons (standard Android system icons)
-- **Touchable Feedback**: Ripple effect (Android standard), no shadows on most buttons
-- **Floating Action Buttons**: Shadow specification - shadowOffset: (0, 2), shadowOpacity: 0.10, shadowRadius: 2
-- **Cards**: 1px border (#2A3444), no shadow, 8px corner radius
-- **Badges**: Rounded corners (16px), solid fills with semantic colors
+- Primary gradient background
+- Size: 56x56px
+- Border radius: 28px
+- Primary glow shadow
+- Scale animation on press
 
-## Assets to Generate
+## Assets
 
-1. **icon.png** - App icon featuring police badge silhouette + camera lens (navy and orange)
+1. **icon.png** - App icon with police badge + camera lens (navy/primary blue)
 2. **splash-icon.png** - Same as app icon
-3. **empty-cases.png** - Illustration of empty evidence folder with magnifying glass (WHERE: Cases screen when no cases exist)
-4. **empty-investigation.png** - Illustration of camera with "standby" indicator (WHERE: Investigation tab when no active case)
-5. **empty-reports.png** - Illustration of blank document with checkmark (WHERE: Reports screen when no reports generated)
-6. **officer-avatar.png** - Generic police badge icon (WHERE: Profile screen, login confirmation)
-7. **evidence-marker-weapon.png** - Map pin icon with weapon symbol (WHERE: Map view for weapon evidence)
-8. **evidence-marker-vehicle.png** - Map pin icon with vehicle symbol (WHERE: Map view for vehicle evidence)
-9. **evidence-marker-document.png** - Map pin icon with document symbol (WHERE: Map view for document evidence)
-10. **evidence-marker-person.png** - Map pin icon with person symbol (WHERE: Map view for person-related evidence)
+3. **empty-cases.png** - Empty folder illustration
+4. **empty-investigation.png** - Camera standby illustration
+5. **empty-reports.png** - Blank document illustration
+6. **officer-avatar.png** - Generic badge icon
 
-**Style Note**: All generated assets should use navy blue (#1E3A5F) and orange (#FF5722) color scheme with clean, geometric shapes suitable for official government software.
+## Accessibility
+
+- Minimum touch target: 44x44px
+- Color contrast ratio: 4.5:1 minimum
+- Focus indicators: 2px primary color ring
+- Haptic feedback on all interactive elements
