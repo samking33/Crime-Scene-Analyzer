@@ -1,9 +1,9 @@
 entrypoint = "README.md"
-modules = ["nodejs-22"]
+modules = ["nodejs-22", "python-3.11"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["libuuid", "pkg-config", "cairo", "pango", "libjpeg", "giflib", "librsvg", "pixman"]
+packages = ["cairo", "freetype", "giflib", "lcms2", "libimagequant", "libjpeg", "libjpeg_turbo", "libpng", "librsvg", "libtiff", "libuuid", "libwebp", "libxcrypt", "oneDNN", "openjpeg", "pango", "pixman", "pkg-config", "re2", "tcl", "tk", "which", "zlib"]
 
 [deployment]
 deploymentTarget = "cloudrun"
