@@ -31,7 +31,8 @@ import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { getActiveCase, getCase, getEvidence, addEvidence, setActiveCase, updateCase, logActivity, getProfile, updateEvidence } from "@/lib/storage";
 import { analyzeImage } from "@/lib/ai";
-import type { Case, Evidence } from "@/types/case";
+import { saveCategorizedObjects, CategorizedObject } from "@/lib/categories";
+import type { Case, Evidence, DetectedObject } from "@/types/case";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -333,6 +334,26 @@ export default function InvestigationScreen() {
             setRecentEvidence(updatedEvidence.slice(0, 5));
             await logActivity(activeCase.id, "AI analysis completed", profile.name, 
               `${result.objectCount} objects detected`);
+            
+            if (result.detectedObjects && result.detectedObjects.length > 0) {
+              const categoryNameToId: Record<string, number> = {
+                weapon: 1, vehicle: 2, person: 3, biometric: 4, drug: 5,
+                document: 6, electronics: 7, markers: 8, tools: 9, other: 10,
+              };
+              
+              const categorizedObjects: CategorizedObject[] = result.detectedObjects.map((obj: DetectedObject) => ({
+                id: obj.id,
+                evidenceId: newEvidence.id,
+                objectName: obj.label,
+                confidence: obj.confidence,
+                location: obj.location,
+                categoryId: obj.categoryId || categoryNameToId[obj.category] || 10,
+                categoryName: obj.category,
+                detectedAt: Date.now(),
+              }));
+              
+              await saveCategorizedObjects(activeCase.id, categorizedObjects);
+            }
           }
         } catch (error) {
           console.error("AI analysis failed:", error);

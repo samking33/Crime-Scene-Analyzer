@@ -26,6 +26,7 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { format } from "date-fns";
 import { analyzeImage } from "@/lib/ai";
 import { updateEvidence } from "@/lib/storage";
+import { saveCategorizedObjects, CategorizedObject } from "@/lib/categories";
 import type { Evidence, DetectedObject, ObjectCategory } from "@/types/case";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -111,13 +112,33 @@ export default function EvidenceViewerScreen() {
         if (updatedEvidence) {
           setEvidence(updatedEvidence);
         }
+        
+        if (result.detectedObjects && result.detectedObjects.length > 0) {
+          const categoryNameToId: Record<string, number> = {
+            weapon: 1, vehicle: 2, person: 3, biometric: 4, drug: 5,
+            document: 6, electronics: 7, markers: 8, tools: 9, other: 10,
+          };
+          
+          const categorizedObjects: CategorizedObject[] = result.detectedObjects.map((obj: DetectedObject) => ({
+            id: obj.id,
+            evidenceId: evidence.id,
+            objectName: obj.label,
+            confidence: obj.confidence,
+            location: obj.location,
+            categoryId: obj.categoryId || categoryNameToId[obj.category] || 10,
+            categoryName: obj.category,
+            detectedAt: Date.now(),
+          }));
+          
+          await saveCategorizedObjects(evidence.caseId, categorizedObjects);
+        }
       }
     } catch (error) {
       console.error("Re-analysis failed:", error);
     } finally {
       setIsAnalyzing(false);
     }
-  }, [evidence.id, evidence.uri, evidence.type]);
+  }, [evidence.id, evidence.uri, evidence.type, evidence.caseId]);
 
   const pinchGesture = Gesture.Pinch()
     .onUpdate((e) => {
