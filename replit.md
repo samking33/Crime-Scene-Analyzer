@@ -20,6 +20,7 @@ A professional mobile application designed for law enforcement first responders 
 7. **Evidence Filtering** - Filter by type (All/Photos/Videos/Audio/Notes) with counts
 8. **Activity Logging** - Chain of custody documentation
 9. **PDF Report Generation** - Professional forensic reports with expo-print/expo-sharing
+10. **Video-Photo Timeline Sync** - Links captured photos to exact moments in background video recording
 
 ## Project Structure
 ```
@@ -39,7 +40,8 @@ client/
 │   ├── RecordingIndicator.tsx # Recording status
 │   ├── ReportCard.tsx         # Report list item
 │   ├── StatusBadge.tsx        # Status indicator
-│   └── ThemedText.tsx         # Styled text
+│   ├── ThemedText.tsx         # Styled text
+│   └── TimelineView.tsx       # Video-photo timeline synchronization view
 ├── constants/
 │   └── theme.ts               # Colors, spacing, typography
 ├── hooks/
@@ -48,7 +50,8 @@ client/
 ├── lib/
 │   ├── ai.ts                  # AI analysis utilities
 │   ├── query-client.ts        # React Query setup
-│   └── storage.ts             # AsyncStorage utilities
+│   ├── storage.ts             # AsyncStorage utilities
+│   └── timeline.ts            # Timeline utilities (formatting, calculations)
 ├── navigation/
 │   ├── MainTabNavigator.tsx   # Bottom tab navigation
 │   └── RootStackNavigator.tsx # Stack navigation
@@ -123,3 +126,13 @@ When a photo is captured, the AI automatically:
 - **Toggle Overlay** - Show/hide detection boxes on evidence photos
 - Fixed 413 error by increasing server body parser limit to 50MB
 - Fixed video recording stop button
+- **Video-Photo Timeline Synchronization System**:
+  - Background video recording starts automatically during investigation
+  - All evidence (photos/videos/audio/notes) capture relative timestamps
+  - TimelineView component with video player and timeline bar
+  - Photo markers positioned on timeline bar by capture time
+  - Playback controls: play/pause, speed adjustment (0.5x-2x), frame stepping
+  - Split-screen mode for synced video and photo viewing
+  - Photo thumbnail strip with timecodes
+  - Chronological event list with all investigation activities
+  - PDF reports include timeline visualization section
