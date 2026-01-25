@@ -207,13 +207,25 @@ function generateReportHtml(
     });
   };
 
+  const formatTimecode = (seconds: number) => {
+    if (!seconds || isNaN(seconds)) return "N/A";
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const evidenceRows = evidence.map((e, i) => `
     <tr>
       <td>${i + 1}</td>
       <td>${e.type.charAt(0).toUpperCase() + e.type.slice(1)}</td>
       <td>${formatDate(e.timestamp)}</td>
+      <td>${e.relativeTimestamp !== undefined ? formatTimecode(e.relativeTimestamp) : "N/A"}</td>
       <td>${e.latitude && e.longitude ? `${e.latitude.toFixed(6)}, ${e.longitude.toFixed(6)}` : "N/A"}</td>
-      <td>${e.aiAnalysis || "N/A"}</td>
+      <td>${e.aiSummary || e.aiAnalysis || "N/A"}</td>
     </tr>
   `).join("");
 
@@ -411,6 +423,56 @@ function generateReportHtml(
     </div>
   </div>
 
+  ${caseData.investigationStartTime ? `
+  <div class="section">
+    <h2>Investigation Timeline</h2>
+    <div class="info-grid">
+      <div class="info-item">
+        <label>Investigation Started</label>
+        <span>${formatDate(caseData.investigationStartTime)}</span>
+      </div>
+      ${caseData.investigationEndTime ? `
+      <div class="info-item">
+        <label>Investigation Ended</label>
+        <span>${formatDate(caseData.investigationEndTime)}</span>
+      </div>
+      ` : ''}
+      ${caseData.backgroundVideoDuration ? `
+      <div class="info-item">
+        <label>Recording Duration</label>
+        <span>${formatTimecode(caseData.backgroundVideoDuration)}</span>
+      </div>
+      ` : ''}
+      <div class="info-item">
+        <label>Evidence Captured</label>
+        <span>${evidence.filter(e => e.relativeTimestamp !== undefined).length} items with timeline sync</span>
+      </div>
+    </div>
+    
+    ${evidence.filter(e => e.relativeTimestamp !== undefined).length > 0 ? `
+    <div style="margin-top: 20px; position: relative; height: 60px; background: #f0f0f0; border-radius: 8px; padding: 10px;">
+      <div style="position: absolute; top: 5px; left: 10px; right: 10px; font-size: 11px; color: #666;">Timeline Visualization</div>
+      <div style="position: absolute; bottom: 20px; left: 10px; right: 10px; height: 8px; background: #1E3A5F; border-radius: 4px;">
+        ${evidence.filter(e => e.relativeTimestamp !== undefined).map(e => {
+          const position = caseData.backgroundVideoDuration 
+            ? ((e.relativeTimestamp || 0) / caseData.backgroundVideoDuration) * 100 
+            : 0;
+          const colors: Record<string, string> = {
+            photo: '#4488FF',
+            video: '#FF4444',
+            audio: '#44CC44',
+            note: '#FFCC00'
+          };
+          return `<div style="position: absolute; left: ${position}%; top: -4px; width: 16px; height: 16px; background: ${colors[e.type] || '#888'}; border-radius: 50%; border: 2px solid white;" title="${e.type} at ${formatTimecode(e.relativeTimestamp || 0)}"></div>`;
+        }).join('')}
+      </div>
+      <div style="position: absolute; bottom: 5px; left: 10px; font-size: 10px; color: #666;">00:00</div>
+      <div style="position: absolute; bottom: 5px; right: 10px; font-size: 10px; color: #666;">${formatTimecode(caseData.backgroundVideoDuration || 0)}</div>
+    </div>
+    ` : ''}
+  </div>
+  ` : ''}
+
   <div class="section">
     <h2>Evidence Catalog</h2>
     ${evidence.length > 0 ? `
@@ -420,6 +482,7 @@ function generateReportHtml(
           <th>#</th>
           <th>Type</th>
           <th>Timestamp</th>
+          <th>Video Timecode</th>
           <th>GPS Coordinates</th>
           <th>AI Analysis</th>
         </tr>
