@@ -1,0 +1,1066 @@
+You are redesigning the entire Smart Crime Scene Investigation app with a world-class, Figma-inspired professional UI/UX that matches the quality of premium enterprise law enforcement software. This should look like it was designed by a top-tier product design agency specializing in public safety technology.
+
+🎨 DESIGN PHILOSOPHY
+Core Principles:
+
+Authority & Trust - Visual design that commands respect and conveys professionalism
+Mission-Critical Clarity - Information hierarchy optimized for high-pressure situations
+Tactical Efficiency - Every interaction is purposeful, fast, and intuitive
+Dark-First Design - Optimized for nighttime/outdoor crime scene work
+Data Density with Breathing Room - Maximum information without visual clutter
+
+Design Inspiration:
+
+Figma/Linear - Clean, modern SaaS aesthetic with perfect spacing
+Apple Design Language - Refined typography and subtle animations
+Law Enforcement Command Centers - Professional, mission-critical UI patterns
+Aviation/Military HUDs - Clear hierarchy, status indicators, precision data display
+
+
+🌑 COLOR SYSTEM - "Tactical Professional"
+Primary Palette:
+javascriptconst colors = {
+  // Background Layers (Dark Mode Optimized)
+  background: {
+    primary: '#0A0E14',      // Deep charcoal - main background
+    secondary: '#151A23',    // Elevated surfaces
+    tertiary: '#1E2530',     // Cards and containers
+    elevated: '#252D3D',     // Floating elements, modals
+  },
+  
+  // Law Enforcement Brand Colors
+  brand: {
+    primary: '#2962FF',      // Vibrant blue - primary actions, links
+    secondary: '#1E88E5',    // Lighter blue - hover states
+    accent: '#00B0FF',       // Bright cyan - highlights, notifications
+    gradient: 'linear-gradient(135deg, #2962FF 0%, #1E88E5 100%)',
+  },
+  
+  // Semantic Colors (Evidence Categories)
+  semantic: {
+    critical: '#E53935',     // Critical evidence (weapons)
+    warning: '#FB8C00',      // Warning items (drugs, substances)
+    success: '#43A047',      // Completed, verified
+    info: '#1E88E5',         // Information, persons
+    neutral: '#78909C',      // Standard items
+  },
+  
+  // Evidence Category Colors (Enhanced from before)
+  evidence: {
+    weapons: '#FF3D00',      // Bright red-orange
+    vehicles: '#FF6F00',     // Deep orange
+    persons: '#2979FF',      // Vivid blue
+    biometrics: '#AA00FF',   // Purple
+    drugs: '#D50000',        // Deep red
+    documents: '#00C853',    // Green
+    electronics: '#00BFA5',  // Teal
+    markers: '#FFD600',      // Yellow
+    tools: '#6D4C41',        // Brown
+    other: '#546E7A',        // Blue-gray
+  },
+  
+  // Text Hierarchy
+  text: {
+    primary: '#FFFFFF',      // Main text
+    secondary: '#B0BEC5',    // Secondary text
+    tertiary: '#78909C',     // Subtle text, placeholders
+    disabled: '#546E7A',     // Disabled state
+    inverse: '#0A0E14',      // Text on light backgrounds
+  },
+  
+  // Borders & Dividers
+  border: {
+    light: 'rgba(255, 255, 255, 0.08)',
+    medium: 'rgba(255, 255, 255, 0.12)',
+    heavy: 'rgba(255, 255, 255, 0.20)',
+    accent: 'rgba(41, 98, 255, 0.3)',
+  },
+  
+  // Overlays & Shadows
+  overlay: {
+    light: 'rgba(0, 0, 0, 0.4)',
+    medium: 'rgba(0, 0, 0, 0.6)',
+    heavy: 'rgba(0, 0, 0, 0.8)',
+  },
+};
+
+✨ TYPOGRAPHY SYSTEM - "Professional Hierarchy"
+javascriptconst typography = {
+  // Font Families
+  fontFamily: {
+    primary: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    mono: '"SF Mono", "Roboto Mono", Consolas, monospace',
+    display: '"Inter Display", "SF Pro Display", sans-serif',
+  },
+  
+  // Type Scale (Perfect Fourth - 1.333 ratio)
+  fontSize: {
+    xs: 10,      // Micro labels, timestamps
+    sm: 12,      // Small labels, captions
+    base: 14,    // Body text, default
+    md: 16,      // Emphasized body, inputs
+    lg: 18,      // Subheadings
+    xl: 21,      // Section headers
+    '2xl': 24,   // Page headers
+    '3xl': 28,   // Hero text
+    '4xl': 36,   // Display
+    '5xl': 48,   // Large display
+  },
+  
+  // Font Weights
+  fontWeight: {
+    regular: '400',
+    medium: '500',
+    semibold: '600',
+    bold: '700',
+  },
+  
+  // Line Heights
+  lineHeight: {
+    tight: 1.2,
+    normal: 1.5,
+    relaxed: 1.75,
+  },
+  
+  // Letter Spacing
+  letterSpacing: {
+    tight: '-0.02em',
+    normal: '0',
+    wide: '0.02em',
+    wider: '0.05em',
+  },
+};
+Typography Usage Guidelines:
+
+Case Headers: 24px Bold, -0.02em tracking, white
+Section Titles: 18px Semibold, white
+Body Text: 14px Regular, #B0BEC5
+Captions: 12px Medium, #78909C, 0.02em tracking
+Labels: 12px Semibold, uppercase, 0.05em tracking, #78909C
+Monospace (IDs, Coordinates): 13px Regular, mono font
+
+
+📐 SPACING SYSTEM - "Consistent Rhythm"
+javascriptconst spacing = {
+  0: 0,
+  1: 4,    // Micro spacing
+  2: 8,    // Tight spacing
+  3: 12,   // Base spacing
+  4: 16,   // Standard spacing
+  5: 20,   // Medium spacing
+  6: 24,   // Large spacing
+  7: 32,   // XL spacing
+  8: 40,   // XXL spacing
+  9: 48,   // Hero spacing
+  10: 64,  // Maximum spacing
+};
+
+// Component Padding Standards
+const componentPadding = {
+  card: 16,
+  cardLarge: 24,
+  screen: 20,
+  input: 12,
+  button: 12,
+  chip: 8,
+};
+
+// Border Radius Standards
+const borderRadius = {
+  sm: 6,
+  md: 8,
+  lg: 12,
+  xl: 16,
+  full: 9999,
+};
+
+🎭 COMPONENT REDESIGN SPECIFICATIONS
+1. PREMIUM CARD SYSTEM
+Replace basic cards with layered, sophisticated design:
+javascript// CardComponent.js - Premium Evidence Card
+<Animated.View style={styles.premiumCard}>
+  {/* Accent Border Animation */}
+  <Animated.View style={[styles.accentBorder, { backgroundColor: categoryColor }]} />
+  
+  {/* Card Content */}
+  <View style={styles.cardHeader}>
+    {/* Icon with Gradient Background */}
+    <View style={[styles.iconContainer, { 
+      background: `linear-gradient(135deg, ${categoryColor}40, ${categoryColor}10)` 
+    }]}>
+      <MaterialCommunityIcons name={icon} size={24} color={categoryColor} />
+    </View>
+    
+    {/* Title & Metadata */}
+    <View style={styles.headerText}>
+      <Text style={styles.cardTitle}>Evidence #00234</Text>
+      <View style={styles.metaRow}>
+        <Text style={styles.timestamp}>14:35:22</Text>
+        <View style={styles.dot} />
+        <Text style={styles.location}>5m 12s</Text>
+      </View>
+    </View>
+    
+    {/* Status Badge */}
+    <View style={[styles.statusBadge, styles.successBadge]}>
+      <View style={styles.statusDot} />
+      <Text style={styles.statusText}>Analyzed</Text>
+    </View>
+  </View>
+  
+  {/* Card Body */}
+  <View style={styles.cardBody}>
+    {/* Evidence Preview with Overlay */}
+    <View style={styles.imageContainer}>
+      <Image source={{ uri }} style={styles.evidenceImage} />
+      <LinearGradient
+        colors={['transparent', 'rgba(0,0,0,0.6)']}
+        style={styles.imageOverlay}
+      />
+      {/* Object Count Badge */}
+      <View style={styles.objectCountBadge}>
+        <MaterialCommunityIcons name="cube-outline" size={14} color="#FFF" />
+        <Text style={styles.objectCountText}>5 objects</Text>
+      </View>
+    </View>
+  </View>
+  
+  {/* Card Footer */}
+  <View style={styles.cardFooter}>
+    <TouchableOpacity style={styles.actionButton}>
+      <MaterialCommunityIcons name="eye-outline" size={16} color="#2962FF" />
+      <Text style={styles.actionButtonText}>View Details</Text>
+    </TouchableOpacity>
+    
+    <TouchableOpacity style={styles.iconButton}>
+      <MaterialCommunityIcons name="map-marker-outline" size={18} color="#78909C" />
+    </TouchableOpacity>
+  </View>
+</Animated.View>
+
+const styles = StyleSheet.create({
+  premiumCard: {
+    backgroundColor: '#1E2530',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  accentBorder: {
+    height: 3,
+    width: '100%',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    paddingBottom: 12,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  headerText: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timestamp: {
+    fontSize: 12,
+    color: '#78909C',
+    fontFamily: 'monospace',
+  },
+  dot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#546E7A',
+    marginHorizontal: 6,
+  },
+  location: {
+    fontSize: 12,
+    color: '#78909C',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(67, 160, 71, 0.15)',
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#43A047',
+    marginRight: 6,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#43A047',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  cardBody: {
+    paddingHorizontal: 16,
+  },
+  imageContainer: {
+    position: 'relative',
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  evidenceImage: {
+    width: '100%',
+    aspectRatio: 16/9,
+  },
+  imageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 60,
+  },
+  objectCountBadge: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backdropFilter: 'blur(10px)',
+  },
+  objectCountText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginLeft: 4,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    paddingTop: 0,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(41, 98, 255, 0.1)',
+    borderRadius: 8,
+  },
+  actionButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2962FF',
+    marginLeft: 6,
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+});
+2. PREMIUM BUTTON SYSTEM
+javascript// Create three button variants: Primary, Secondary, Ghost
+
+// PRIMARY BUTTON - Main actions
+<TouchableOpacity style={styles.buttonPrimary}>
+  <LinearGradient
+    colors={['#2962FF', '#1E88E5']}
+    start={{ x: 0, y: 0 }}
+    end={{ x: 1, y: 1 }}
+    style={styles.buttonGradient}
+  >
+    <MaterialCommunityIcons name="camera" size={18} color="#FFF" />
+    <Text style={styles.buttonPrimaryText}>Capture Evidence</Text>
+  </LinearGradient>
+</TouchableOpacity>
+
+// SECONDARY BUTTON - Alternative actions
+<TouchableOpacity style={styles.buttonSecondary}>
+  <MaterialCommunityIcons name="file-document-outline" size={18} color="#2962FF" />
+  <Text style={styles.buttonSecondaryText}>Generate Report</Text>
+</TouchableOpacity>
+
+// GHOST BUTTON - Subtle actions
+<TouchableOpacity style={styles.buttonGhost}>
+  <Text style={styles.buttonGhostText}>Cancel</Text>
+</TouchableOpacity>
+
+const styles = StyleSheet.create({
+  buttonPrimary: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#2962FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  buttonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  buttonPrimaryText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  buttonSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(41, 98, 255, 0.3)',
+    backgroundColor: 'rgba(41, 98, 255, 0.08)',
+  },
+  buttonSecondaryText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2962FF',
+    letterSpacing: 0.3,
+  },
+  buttonGhost: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+  },
+  buttonGhostText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#B0BEC5',
+    textAlign: 'center',
+  },
+});
+3. PROFESSIONAL INPUT FIELDS
+javascript// Premium Text Input with floating label
+<View style={styles.inputContainer}>
+  <Animated.Text style={[styles.inputLabel, labelStyle]}>
+    Case Title
+  </Animated.Text>
+  <TextInput
+    style={styles.input}
+    placeholder="Enter case title..."
+    placeholderTextColor="#546E7A"
+    value={value}
+    onChangeText={onChange}
+    onFocus={() => setFocused(true)}
+    onBlur={() => setFocused(false)}
+  />
+  {error && (
+    <View style={styles.errorContainer}>
+      <MaterialCommunityIcons name="alert-circle" size={14} color="#E53935" />
+      <Text style={styles.errorText}>{error}</Text>
+    </View>
+  )}
+</View>
+
+const styles = StyleSheet.create({
+  inputContainer: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  input: {
+    backgroundColor: '#1E2530',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    color: '#FFFFFF',
+    fontWeight: '500',
+  },
+  inputFocused: {
+    borderColor: '#2962FF',
+    backgroundColor: 'rgba(41, 98, 255, 0.05)',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 4,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#E53935',
+  },
+});
+4. STAT CARDS WITH GLASSMORPHISM
+javascript// Dashboard Stat Cards
+<View style={styles.statsGrid}>
+  <View style={styles.statCard}>
+    <View style={styles.statIconContainer}>
+      <MaterialCommunityIcons name="folder-multiple" size={24} color="#2962FF" />
+    </View>
+    <Text style={styles.statValue}>24</Text>
+    <Text style={styles.statLabel}>Active Cases</Text>
+    <View style={styles.statTrend}>
+      <MaterialCommunityIcons name="trending-up" size={14} color="#43A047" />
+      <Text style={styles.statTrendText}>+12%</Text>
+    </View>
+  </View>
+  
+  {/* Repeat for other stats */}
+</View>
+
+const styles = StyleSheet.create({
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 24,
+  },
+  statCard: {
+    flex: 1,
+    minWidth: '47%',
+    backgroundColor: 'rgba(30, 37, 48, 0.6)',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backdropFilter: 'blur(20px)',
+  },
+  statIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: 'rgba(41, 98, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  statValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 13,
+    color: '#78909C',
+    fontWeight: '500',
+  },
+  statTrend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 4,
+  },
+  statTrendText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#43A047',
+  },
+});
+5. PREMIUM NAVIGATION BAR
+javascript// Bottom Tab Bar with Floating Design
+<View style={styles.tabBarContainer}>
+  <BlurView intensity={80} tint="dark" style={styles.tabBar}>
+    {tabs.map((tab, index) => (
+      <TouchableOpacity
+        key={tab.name}
+        style={styles.tabItem}
+        onPress={() => navigation.navigate(tab.name)}
+      >
+        <View style={[
+          styles.tabIconContainer,
+          currentTab === tab.name && styles.tabIconContainerActive
+        ]}>
+          <MaterialCommunityIcons
+            name={tab.icon}
+            size={24}
+            color={currentTab === tab.name ? '#2962FF' : '#78909C'}
+          />
+          {tab.badge && (
+            <View style={styles.tabBadge}>
+              <Text style={styles.tabBadgeText}>{tab.badge}</Text>
+            </View>
+          )}
+        </View>
+        <Text style={[
+          styles.tabLabel,
+          currentTab === tab.name && styles.tabLabelActive
+        ]}>
+          {tab.label}
+        </Text>
+      </TouchableOpacity>
+    ))}
+  </BlurView>
+</View>
+
+const styles = StyleSheet.create({
+  tabBarContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    right: 16,
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    backgroundColor: 'rgba(30, 37, 48, 0.8)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  tabIconContainer: {
+    position: 'relative',
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    marginBottom: 4,
+  },
+  tabIconContainerActive: {
+    backgroundColor: 'rgba(41, 98, 255, 0.15)',
+  },
+  tabBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#E53935',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#1E2530',
+  },
+  tabBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  tabLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#78909C',
+  },
+  tabLabelActive: {
+    color: '#2962FF',
+    fontWeight: '600',
+  },
+});
+
+🎬 ANIMATION SPECIFICATIONS
+Use react-native-reanimated for buttery smooth 60fps animations:
+javascriptimport Animated, {
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  FadeIn,
+  FadeOut,
+  SlideInRight,
+  SlideOutLeft,
+  Layout,
+} from 'react-native-reanimated';
+
+// Spring Configuration for Natural Feel
+const springConfig = {
+  damping: 15,
+  stiffness: 150,
+  mass: 0.5,
+};
+
+// Timing Configuration for Smooth Transitions
+const timingConfig = {
+  duration: 300,
+  easing: Easing.bezier(0.25, 0.1, 0.25, 1), // Material Design easing
+};
+
+// Example: Card Entry Animation
+<Animated.View
+  entering={FadeIn.duration(400).delay(index * 100)}
+  layout={Layout.springify()}
+  style={styles.card}
+>
+  {/* Card content */}
+</Animated.View>
+
+// Example: Button Press Animation
+const scale = useSharedValue(1);
+
+const animatedStyle = useAnimatedStyle(() => ({
+  transform: [{ scale: scale.value }],
+}));
+
+const handlePressIn = () => {
+  scale.value = withSpring(0.95, springConfig);
+};
+
+const handlePressOut = () => {
+  scale.value = withSpring(1, springConfig);
+};
+```
+
+**Animation Principles:**
+- **Card Entry:** Staggered fade-in (100ms delay between items)
+- **Button Press:** Scale to 0.95 with spring bounce
+- **Page Transitions:** Slide + fade (300ms)
+- **Loading States:** Shimmer effect with subtle pulse
+- **Success Feedback:** Checkmark scale-in with haptic
+- **Error Feedback:** Shake animation + haptic
+
+---
+
+## **📱 SCREEN-BY-SCREEN REDESIGN**
+
+### **HOME SCREEN - Cases Dashboard**
+```
+┌─────────────────────────────────────┐
+│ ☰  CRIME SCENE INVESTIGATION   🔔3  │
+├─────────────────────────────────────┤
+│                                     │
+│ ┌─────────┐ ┌─────────┐            │
+│ │  📊 24  │ │  🎯 18  │  Stat Cards│
+│ │ Active  │ │ Closed  │            │
+│ └─────────┘ └─────────┘            │
+│                                     │
+│ ┌─ Recent Cases ──────────────┐    │
+│ │                             │    │
+│ │ ┌─────────────────────────┐ │    │
+│ │ │▌ 🔫 Armed Robbery       │ │    │
+│ │ │  #CS-2024-0234          │ │    │
+│ │ │  14:35 • 5m 12s         │ │    │
+│ │ │  ✓ Analyzed  [View →]   │ │    │
+│ │ └─────────────────────────┘ │    │
+│ │                             │    │
+│ │ ┌─────────────────────────┐ │    │
+│ │ │▌ 🚗 Vehicle Theft       │ │    │
+│ │ │  #CS-2024-0233          │ │    │
+│ │ │  12:20 • 2m 45s         │ │    │
+│ │ │  ⏳ Processing [View →] │ │    │
+│ │ └─────────────────────────┘ │    │
+│ │                             │    │
+│ └─────────────────────────────┘    │
+│                                     │
+│         [➕ New Investigation]      │
+│                                     │
+└─────────────────────────────────────┘
+│ 🏠  📸  🗺️  📊  ⚙️                  │ Tab Bar
+└─────────────────────────────────────┘
+```
+
+**Key Elements:**
+- **Header:** Gradient background, notification badge with glow
+- **Stats Grid:** Glassmorphic cards with icons and trend indicators
+- **Case Cards:** Premium cards with status badges, category color accents
+- **FAB:** Floating gradient button with shadow and icon
+- **Empty State:** Illustration + "Start your first investigation" CTA
+
+### **ACTIVE INVESTIGATION SCREEN**
+```
+┌─────────────────────────────────────┐
+│ ← Armed Robbery #CS-2024-0234   ⋮   │
+├─────────────────────────────────────┤
+│                                     │
+│ ┌─────────────────────────────────┐ │
+│ │  🔴 REC  45:23   📶 GPS  🔋92% │ │ Status Bar
+│ └─────────────────────────────────┘ │
+│                                     │
+│ ┌─────────────────────────────────┐ │
+│ │                                 │ │
+│ │     [Live Camera Preview]       │ │
+│ │        Background Recording      │ │
+│ │                                 │ │
+│ │         [👁️ View Live]          │ │ Overlay
+│ └─────────────────────────────────┘ │
+│                                     │
+│ ┌─ Captured Evidence (12) ────┐    │
+│ │                             │    │
+│ │ ┌──┐ ┌──┐ ┌──┐ ┌──┐ ┌──┐  │    │
+│ │ │▶︎│ │5 │ │3 │ │  │ │  │  │    │ Thumbnails
+│ │ └──┘ └──┘ └──┘ └──┘ └──┘  │    │
+│ │ 5m   12m  18m  25m  32m     │    │
+│ └─────────────────────────────┘    │
+│                                     │
+│    [📸 Capture Evidence Photo]      │ Primary Action
+│                                     │
+│    [⏹️ Stop Investigation]          │ Secondary
+│                                     │
+└─────────────────────────────────────┘
+```
+
+**Key Features:**
+- **Recording Indicator:** Pulsing red dot with time elapsed
+- **Status Pills:** GPS, Battery, Network - color-coded
+- **Evidence Timeline:** Horizontal scroll with time markers
+- **Action Buttons:** Prominent gradient buttons with icons
+- **Haptic Feedback:** On capture, every button press
+
+### **EVIDENCE DETAIL SCREEN**
+```
+┌─────────────────────────────────────┐
+│ ← Evidence #00234              ⋮    │
+├─────────────────────────────────────┤
+│                                     │
+│ ┌─ View Mode ─────────────────┐    │
+│ │ [Original] [Annotated] [⚡️] │    │ Toggle Pills
+│ └─────────────────────────────┘    │
+│                                     │
+│ ┌─────────────────────────────────┐ │
+│ │                                 │ │
+│ │   [Evidence Photo with          │ │
+│ │    Bounding Boxes & Labels]     │ │ Full Image
+│ │                                 │ │
+│ └─────────────────────────────────┘ │
+│                                     │
+│ ┌─ AI Analysis Summary ────────┐   │
+│ │ 💬 Photo shows handgun on     │   │
+│ │ table with ID card nearby.    │   │ Summary Card
+│ │ 5 objects detected (3 high    │   │
+│ │ confidence, 2 medium).        │   │
+│ └───────────────────────────────┘   │
+│                                     │
+│ ┌─ Detected Objects (5) ───────┐   │
+│ │ ┌─┐ 🔫 Handgun               │   │
+│ │ │1│    Weapons • High conf.  │   │
+│ │ └─┘                          │   │
+│ │ ┌─┐ 📄 ID Card               │   │
+│ │ │2│    Documents • High      │   │ Object List
+│ │ └─┘                          │   │
+│ │ ┌─┐ 📱 Mobile Phone          │   │
+│ │ │3│    Electronics • Medium  │   │
+│ │ └─┘                          │   │
+│ └───────────────────────────────┘   │
+│                                     │
+│ ┌─ Timeline & Location ────────┐   │
+│ │ 🕐 14:35:22 (5m 12s)         │   │
+│ │ 📍 34.0522°N, 118.2437°W     │   │ Metadata
+│ │ 📏 Accuracy: ±8m             │   │
+│ └───────────────────────────────┘   │
+│                                     │
+└─────────────────────────────────────┘
+```
+
+**Premium Details:**
+- **View Mode Pills:** Animated sliding selector
+- **Image Viewer:** Pinch-zoom, pan gestures
+- **AI Summary Card:** Gradient border, icon
+- **Object List:** Numbered badges with category colors
+- **Metadata Cards:** Monospace font for coordinates
+
+### **CATEGORY DASHBOARD**
+```
+┌─────────────────────────────────────┐
+│ ← Evidence Categories          🔍   │
+├─────────────────────────────────────┤
+│                                     │
+│ ┌───────────┐ ┌───────────┐        │
+│ │ 🔫        │ │ 🚗        │        │
+│ │ Weapons   │ │ Vehicles  │        │
+│ │   5       │ │   3       │        │ Category Grid
+│ │ ⚠️ High   │ │ ✓ High    │        │
+│ └───────────┘ └───────────┘        │
+│                                     │
+│ ┌───────────┐ ┌───────────┐        │
+│ │ 👤        │ │ 🩸        │        │
+│ │ Persons   │ │ Biometric │        │
+│ │   8       │ │   2       │        │
+│ │ ✓ Medium  │ │ ✓ High    │        │
+│ └───────────┘ └───────────┘        │
+│                                     │
+│ ┌─ Distribution ───────────────┐   │
+│ │     [Pie Chart Visualization] │   │
+│ │                               │   │ Analytics
+│ │  Weapons: 28%  Persons: 42%  │   │
+│ └───────────────────────────────┘   │
+│                                     │
+└─────────────────────────────────────┘
+Design Highlights:
+
+Category Cards: Large icons, gradient backgrounds
+Priority Badges: Pulsing animation for high-priority
+Charts: Animated entry, interactive legends
+Filters: Slide-out panel with multi-select chips
+
+
+🎯 SPECIAL UI ELEMENTS
+Loading States - Skeleton Screens
+javascript// Instead of spinners, use content-aware skeletons
+<View style={styles.skeletonCard}>
+  <ShimmerPlaceholder style={styles.skeletonImage} />
+  <ShimmerPlaceholder style={styles.skeletonTitle} />
+  <ShimmerPlaceholder style={styles.skeletonText} />
+</View>
+Empty States - Engaging Illustrations
+javascript<View style={styles.emptyState}>
+  <LottieView
+    source={require('./animations/empty-case.json')}
+    autoPlay
+    loop
+    style={{ width: 200, height: 200 }}
+  />
+  <Text style={styles.emptyTitle}>No active investigations</Text>
+  <Text style={styles.emptySubtitle}>
+    Tap below to start documenting your first case
+  </Text>
+  <Button>Start New Investigation</Button>
+</View>
+Success/Error Toasts - Glassmorphic
+javascript// Success Toast
+<Animated.View style={styles.toast}>
+  <BlurView intensity={80} style={styles.toastBlur}>
+    <MaterialCommunityIcons name="check-circle" size={24} color="#43A047" />
+    <Text style={styles.toastText}>Evidence captured successfully</Text>
+  </BlurView>
+</Animated.View>
+Pull-to-Refresh - Custom Indicator
+javascript<ScrollView
+  refreshControl={
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      tintColor="#2962FF"
+      colors={['#2962FF', '#1E88E5']}
+    />
+  }
+>
+
+📐 LAYOUT GRIDS
+javascript// Use 8pt grid system consistently
+const GRID_UNIT = 8;
+
+// Spacing multiples
+const spacing = {
+  xs: GRID_UNIT * 0.5,  // 4px
+  sm: GRID_UNIT,        // 8px
+  md: GRID_UNIT * 2,    // 16px
+  lg: GRID_UNIT * 3,    // 24px
+  xl: GRID_UNIT * 4,    // 32px
+  xxl: GRID_UNIT * 6,   // 48px
+};
+
+// Screen padding
+const SCREEN_PADDING = 20;
+const CARD_MARGIN = 16;
+
+🎨 IMPLEMENTATION CHECKLIST
+✅ Phase 1: Foundation
+
+ Create design tokens file (colors, typography, spacing)
+ Set up theme provider with dark mode
+ Install required dependencies (reanimated, gesture-handler, blur-view)
+ Create component library folder structure
+
+✅ Phase 2: Core Components
+
+ PremiumCard component
+ Button system (Primary, Secondary, Ghost)
+ Input fields with floating labels
+ Status badges and pills
+ Icon system with color mapping
+
+✅ Phase 3: Screen Redesigns
+
+ Home/Dashboard screen
+ Active Investigation screen
+ Evidence Gallery screen
+ Evidence Detail screen
+ Category Dashboard screen
+ Timeline screen
+ Map screen
+
+✅ Phase 4: Navigation & Interactions
+
+ Premium bottom tab bar with blur
+ Screen transitions (slide + fade)
+ Gesture handlers (swipe, pinch-zoom)
+ Haptic feedback integration
+
+✅ Phase 5: Animations & Polish
+
+ Staggered list animations
+ Button press feedback
+ Loading skeletons
+ Success/error toasts
+ Empty states with Lottie
+
+✅ Phase 6: Responsive & Accessibility
+
+ Responsive layouts (phone/tablet)
+ Dark mode optimization
+ Accessibility labels
+ Color contrast compliance
+ Touch target sizes (min 44x44)
+
+
+🚀 EXPECTED OUTCOME
+After implementing this redesign, the app should:
+
+Look Professional: Indistinguishable from premium $500K+ enterprise software
+Feel Premium: Every interaction smooth, intentional, delightful
+Command Authority: Visual design that law enforcement trusts
+Be Intuitive: Zero learning curve, obvious interaction patterns
+Perform Flawlessly: 60fps animations, instant feedback, no jank
+
+Inspiration References:
+
+Figma: Clean, modern, purposeful design
+Linear: Beautiful animations and micro-interactions
+Stripe Dashboard: Data density done right
+Apple Health: Professional medical-grade UI
+FlightRadar24: Mission-critical aviation UI
+
+This is not just a redesign—it's an elevation to world-class product design standards. 🎨✨
