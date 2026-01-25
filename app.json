@@ -1,29 +1,40 @@
 {
   "expo": {
-    "name": "my-app",
-    "slug": "my-app",
+    "name": "Crime Scene Investigator",
+    "slug": "crime-scene-investigator",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
-    "userInterfaceStyle": "automatic",
+    "scheme": "crimescene",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.crimescene.investigator",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs camera access to capture evidence photos and video.",
+        "NSMicrophoneUsageDescription": "This app needs microphone access to record audio notes and video with sound.",
+        "NSLocationWhenInUseUsageDescription": "This app needs location access to GPS tag evidence."
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#0A0E14",
+        "foregroundImage": "./assets/images/icon.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.crimescene.investigator",
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
     },
     "web": {
       "output": "single",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/icon.png"
     },
     "plugins": [
       [
@@ -32,13 +43,27 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#0A0E14",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#0A0E14"
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Crime Scene Investigator to access your camera for evidence capture.",
+          "microphonePermission": "Allow Crime Scene Investigator to access your microphone for audio notes.",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Crime Scene Investigator to access your location for evidence GPS tagging."
+        }
+      ]
     ],
     "experiments": {
       "reactCompiler": true
