@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { FlatList, View, StyleSheet, RefreshControl, Pressable } from "react-native";
+import { FlatList, View, StyleSheet, RefreshControl, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -10,8 +10,8 @@ import * as Haptics from "expo-haptics";
 
 import { CaseCard } from "@/components/CaseCard";
 import { EmptyState } from "@/components/EmptyState";
-import { Input } from "@/components/Input";
-import { Colors, Spacing } from "@/constants/theme";
+import { CaseCardSkeleton } from "@/components/SkeletonLoader";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { getCases } from "@/lib/storage";
 import type { Case } from "@/types/case";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -85,6 +85,24 @@ export default function CasesScreen() {
     );
   };
 
+  const renderLoading = () => (
+    <View style={styles.loadingContainer}>
+      <CaseCardSkeleton />
+      <CaseCardSkeleton />
+      <CaseCardSkeleton />
+    </View>
+  );
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: Colors.dark.backgroundRoot }]}>
+        <View style={[styles.listContent, { paddingTop: headerHeight + Spacing.xl }]}>
+          {renderLoading()}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: Colors.dark.backgroundRoot }]}>
       <FlatList
@@ -104,15 +122,15 @@ export default function CasesScreen() {
         ListHeaderComponent={
           cases.length > 0 ? (
             <View style={styles.searchContainer}>
-              <View style={styles.searchInputWrapper}>
-                <Feather name="search" size={18} color={Colors.dark.textSecondary} />
-                <Input
-                  placeholder="Search cases..."
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  style={styles.searchInput}
-                />
-              </View>
+              <Feather name="search" size={18} color={Colors.dark.textSecondary} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search cases..."
+                placeholderTextColor={Colors.dark.textSecondary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                testID="input-search"
+              />
             </View>
           ) : null
         }
@@ -143,22 +161,25 @@ const styles = StyleSheet.create({
   emptyListContent: {
     flex: 1,
   },
-  searchContainer: {
-    marginBottom: Spacing.lg,
+  loadingContainer: {
+    gap: Spacing.md,
   },
-  searchInputWrapper: {
+  searchContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: 8,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
     paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.lg,
     gap: Spacing.sm,
   },
   searchInput: {
     flex: 1,
-    borderWidth: 0,
-    backgroundColor: "transparent",
-    paddingHorizontal: 0,
+    height: Spacing.inputHeight,
+    fontSize: 16,
+    color: Colors.dark.text,
   },
   separator: {
     height: Spacing.md,

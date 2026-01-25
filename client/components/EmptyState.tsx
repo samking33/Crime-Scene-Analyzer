@@ -10,18 +10,19 @@ interface EmptyStateProps {
   description?: string;
   actionLabel?: string;
   onAction?: () => void;
+  testID?: string;
 }
 
-export function EmptyState({ image, title, description, actionLabel, onAction }: EmptyStateProps) {
+export function EmptyState({ image, title, description, actionLabel, onAction, testID }: EmptyStateProps) {
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID={testID}>
       <Image source={image} style={styles.image} resizeMode="contain" />
       <ThemedText style={styles.title}>{title}</ThemedText>
       {description ? (
         <ThemedText style={styles.description}>{description}</ThemedText>
       ) : null}
       {actionLabel && onAction ? (
-        <Button onPress={onAction} style={styles.button}>
+        <Button onPress={onAction} style={styles.button} testID={`${testID}-button`}>
           {actionLabel}
         </Button>
       ) : null}

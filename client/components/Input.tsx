@@ -6,9 +6,10 @@ import { Colors, BorderRadius, Spacing } from "@/constants/theme";
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
+  testID?: string;
 }
 
-export function Input({ label, error, style, ...props }: InputProps) {
+export function Input({ label, error, style, testID, ...props }: InputProps) {
   return (
     <View style={styles.container}>
       {label ? <ThemedText style={styles.label}>{label}</ThemedText> : null}
@@ -19,6 +20,7 @@ export function Input({ label, error, style, ...props }: InputProps) {
           style,
         ]}
         placeholderTextColor={Colors.dark.textSecondary}
+        testID={testID}
         {...props}
       />
       {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}

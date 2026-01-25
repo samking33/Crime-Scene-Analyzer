@@ -8,14 +8,14 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
-import { useTheme } from "@/hooks/useTheme";
-import { BorderRadius, Spacing } from "@/constants/theme";
+import { Colors, BorderRadius, Spacing } from "@/constants/theme";
 
 interface ButtonProps {
   onPress?: () => void;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
+  testID?: string;
 }
 
 const springConfig: WithSpringConfig = {
@@ -33,8 +33,8 @@ export function Button({
   children,
   style,
   disabled = false,
+  testID,
 }: ButtonProps) {
-  const { theme } = useTheme();
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -59,10 +59,11 @@ export function Button({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled}
+      testID={testID}
       style={[
         styles.button,
         {
-          backgroundColor: theme.link,
+          backgroundColor: Colors.dark.accent,
           opacity: disabled ? 0.5 : 1,
         },
         style,
@@ -71,7 +72,7 @@ export function Button({
     >
       <ThemedText
         type="body"
-        style={[styles.buttonText, { color: theme.buttonText }]}
+        style={[styles.buttonText, { color: Colors.dark.buttonText }]}
       >
         {children}
       </ThemedText>
@@ -82,7 +83,7 @@ export function Button({
 const styles = StyleSheet.create({
   button: {
     height: Spacing.buttonHeight,
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.md,
     alignItems: "center",
     justifyContent: "center",
   },

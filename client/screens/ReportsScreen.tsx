@@ -8,7 +8,7 @@ import * as Haptics from "expo-haptics";
 
 import { ReportCard } from "@/components/ReportCard";
 import { EmptyState } from "@/components/EmptyState";
-import { ThemedText } from "@/components/ThemedText";
+import { ReportCardSkeleton } from "@/components/SkeletonLoader";
 import { Colors, Spacing } from "@/constants/theme";
 import { getReports } from "@/lib/storage";
 import type { Report } from "@/types/case";
@@ -64,6 +64,24 @@ export default function ReportsScreen() {
     );
   };
 
+  const renderLoading = () => (
+    <View style={styles.loadingContainer}>
+      <ReportCardSkeleton />
+      <ReportCardSkeleton />
+      <ReportCardSkeleton />
+    </View>
+  );
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: Colors.dark.backgroundRoot }]}>
+        <View style={[styles.listContent, { paddingTop: headerHeight + Spacing.xl }]}>
+          {renderLoading()}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: Colors.dark.backgroundRoot }]}>
       <FlatList
@@ -106,6 +124,9 @@ const styles = StyleSheet.create({
   },
   emptyListContent: {
     flex: 1,
+  },
+  loadingContainer: {
+    gap: Spacing.md,
   },
   separator: {
     height: Spacing.md,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Alert, Platform, Linking } from "react-native";
+import { View, StyleSheet, Platform, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
@@ -11,7 +11,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, Fonts } from "@/constants/theme";
+import { Colors, Spacing, Fonts, BorderRadius } from "@/constants/theme";
 import { createCase, getProfile, setActiveCase } from "@/lib/storage";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -135,6 +135,7 @@ export default function NewCaseScreen() {
           onChangeText={setTitle}
           autoCapitalize="sentences"
           autoFocus
+          testID="input-case-title"
         />
         
         <View style={styles.locationField}>
@@ -144,9 +145,10 @@ export default function NewCaseScreen() {
             value={location}
             onChangeText={setLocation}
             autoCapitalize="words"
+            testID="input-location"
           />
           {!locationPermission?.granted ? (
-            <Button onPress={handleRequestLocation} style={styles.locationButton}>
+            <Button onPress={handleRequestLocation} style={styles.locationButton} testID="button-get-location">
               Get Current Location
             </Button>
           ) : null}
@@ -158,6 +160,7 @@ export default function NewCaseScreen() {
           value={leadOfficer}
           onChangeText={setLeadOfficer}
           autoCapitalize="words"
+          testID="input-lead-officer"
         />
         
         <View style={styles.previewSection}>
@@ -174,7 +177,7 @@ export default function NewCaseScreen() {
       <Button
         onPress={handleCreate}
         disabled={!isValid || isLoading}
-        style={styles.createButton}
+        testID="button-create-case"
       >
         {isLoading ? "Creating..." : "Create Case"}
       </Button>
@@ -201,7 +204,7 @@ const styles = StyleSheet.create({
   },
   previewSection: {
     backgroundColor: Colors.dark.backgroundDefault,
-    borderRadius: 8,
+    borderRadius: BorderRadius.sm,
     borderWidth: 1,
     borderColor: Colors.dark.border,
     padding: Spacing.lg,
@@ -223,8 +226,5 @@ const styles = StyleSheet.create({
   previewNote: {
     fontSize: 12,
     color: Colors.dark.textSecondary,
-  },
-  createButton: {
-    backgroundColor: Colors.dark.accent,
   },
 });

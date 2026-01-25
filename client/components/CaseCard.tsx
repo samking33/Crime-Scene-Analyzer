@@ -49,6 +49,7 @@ export function CaseCard({ caseData, onPress }: CaseCardProps) {
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       style={[styles.card, animatedStyle]}
+      testID={`card-case-${caseData.id}`}
     >
       <View style={styles.thumbnailContainer}>
         {caseData.thumbnail ? (
@@ -62,11 +63,13 @@ export function CaseCard({ caseData, onPress }: CaseCardProps) {
       
       <View style={styles.content}>
         <View style={styles.header}>
-          <ThemedText style={styles.caseId}>{caseData.caseId}</ThemedText>
+          <ThemedText style={styles.caseId} testID={`text-case-id-${caseData.id}`}>
+            {caseData.caseId}
+          </ThemedText>
           <StatusBadge status={caseData.status} />
         </View>
         
-        <ThemedText style={styles.title} numberOfLines={1}>
+        <ThemedText style={styles.title} numberOfLines={1} testID={`text-case-title-${caseData.id}`}>
           {caseData.title}
         </ThemedText>
         
