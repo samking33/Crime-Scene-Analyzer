@@ -1,0 +1,37 @@
+Object Detection Implementation:
+	∙	When a photo is captured, automatically send it to OpenAI Vision API
+	∙	Use this prompt for Vision API: “Analyze this crime scene evidence photo. Detect and list ALL visible objects relevant to law enforcement investigation including: weapons, vehicles, persons, license plates, drugs/substances, blood stains, fingerprints, documents, electronic devices, evidence markers, and any other notable items. For each detected object, provide: object name, confidence level (high/medium/low), and approximate location in the image (top-left, center, bottom-right, etc.).”
+	∙	Parse the API response to extract: object names, confidence levels, and locations
+	∙	Store results in DetectedObjects table in Room database
+3. Visual Overlay Display:
+	∙	On the photo detail view, draw semi-transparent rectangular bounding boxes around detected objects
+	∙	Use different colored boxes for different categories:
+	∙	Red: Weapons
+	∙	Yellow: Vehicles
+	∙	Blue: Persons
+	∙	Green: Documents
+	∙	Orange: Substances/Drugs
+	∙	Purple: Biometrics (blood, fingerprints)
+	∙	Gray: Other items
+	∙	Display object label and confidence score on each box (e.g., “Handgun - High Confidence”)
+	∙	Add toggle button to show/hide overlay
+4. Analysis Summary Generation:
+	∙	After detection completes, generate a concise analysis summary using OpenAI API
+	∙	Summary prompt: “Based on these detected objects: [list of objects], provide a brief 2-3 sentence professional summary of what this evidence photo shows from a law enforcement perspective.”
+	∙	Display summary prominently below the photo with professional styling
+	∙	Store summary text in Evidence table (add ‘aiSummary’ column)
+5. UI Components:
+	∙	Show “Analyzing with AI…” progress indicator during API call
+	∙	Display analysis results card with:
+	∙	Total objects detected count
+	∙	Confidence distribution (X high, Y medium, Z low)
+	∙	Generated summary text
+	∙	“View Details” button to see full object list
+	∙	Add “Re-analyze” button to reprocess if needed
+	∙	Handle API failures gracefully with user-friendly error messages
+6. Performance & UX:
+	∙	Implement request queuing for multiple photos (don’t overwhelm API)
+	∙	Add loading shimmer effect during analysis
+	∙	Cache API responses to avoid redundant calls
+	∙	Show estimated time remaining for batch analysis
+	∙	Optimize image size before sending to API (compress to max 1024px while maintaining quality)
