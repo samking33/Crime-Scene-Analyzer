@@ -1,11 +1,13 @@
 import React from "react";
-import { View, StyleSheet, Pressable, Image } from "react-native";
+import { View, StyleSheet, Pressable, Platform } from "react-native";
+import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, BorderRadius, Spacing } from "@/constants/theme";
@@ -14,13 +16,13 @@ import type { Evidence } from "@/types/case";
 
 interface EvidenceCardProps {
   evidence: Evidence;
-  onPress?: () => void;
   compact?: boolean;
+  onPress?: () => void;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export function EvidenceCard({ evidence, onPress, compact = false }: EvidenceCardProps) {
+export function EvidenceCard({ evidence, compact = false, onPress }: EvidenceCardProps) {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -28,17 +30,24 @@ export function EvidenceCard({ evidence, onPress, compact = false }: EvidenceCar
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.97, { damping: 15, stiffness: 150 });
+    scale.value = withSpring(0.96, { damping: 15, stiffness: 150 });
   };
 
   const handlePressOut = () => {
     scale.value = withSpring(1, { damping: 15, stiffness: 150 });
   };
 
-  const getIcon = () => {
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress?.();
+  };
+
+  const getIcon = (): keyof typeof Feather.glyphMap => {
     switch (evidence.type) {
       case "photo":
-        return "camera";
+        return "image";
+      case "video":
+        return "video";
       case "audio":
         return "mic";
       case "note":
@@ -48,77 +57,141 @@ export function EvidenceCard({ evidence, onPress, compact = false }: EvidenceCar
     }
   };
 
-  const getTypeLabel = () => {
+  const getTypeColor = () => {
     switch (evidence.type) {
       case "photo":
-        return "Photo";
+        return Colors.dark.accent;
+      case "video":
+        return Colors.dark.error;
       case "audio":
-        return "Audio";
+        return Colors.dark.success;
       case "note":
-        return "Note";
+        return Colors.dark.primary;
       default:
-        return "Evidence";
+        return Colors.dark.textSecondary;
     }
   };
 
   if (compact) {
     return (
       <AnimatedPressable
-        onPress={onPress}
+        onPress={handlePress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         style={[styles.compactCard, animatedStyle]}
+        testID={`evidence-compact-${evidence.id}`}
       >
-        {evidence.type === "photo" && evidence.uri ? (
-          <Image source={{ uri: evidence.uri }} style={styles.compactImage} />
+        {evidence.uri && (evidence.type === "photo" || evidence.type === "video") ? (
+          <View style={styles.compactImageContainer}>
+            <Image source={{ uri: evidence.uri }} style={styles.compactImage} contentFit="cover" />
+            {evidence.type === "video" ? (
+              <View style={styles.videoOverlay}>
+                <Feather name="play-circle" size={24} color={Colors.dark.text} />
+              </View>
+            ) : null}
+          </View>
         ) : (
-          <View style={styles.compactPlaceholder}>
-            <Feather name={getIcon()} size={20} color={Colors.dark.accent} />
+          <View style={[styles.compactPlaceholder, { backgroundColor: getTypeColor() + "20" }]}>
+            <Feather name={getIcon()} size={24} color={getTypeColor()} />
           </View>
         )}
-        <ThemedText style={styles.compactTime}>
-          {format(new Date(evidence.timestamp), "HH:mm")}
-        </ThemedText>
+        <View style={styles.compactInfo}>
+          <View style={styles.typeRow}>
+            <View style={[styles.typeBadge, { backgroundColor: getTypeColor() + "20" }]}>
+              <Feather name={getIcon()} size={10} color={getTypeColor()} />
+              <ThemedText style={[styles.typeText, { color: getTypeColor() }]}>
+                {evidence.type.charAt(0).toUpperCase() + evidence.type.slice(1)}
+              </ThemedText>
+            </View>
+          </View>
+          <ThemedText style={styles.compactTime}>
+            {format(new Date(evidence.timestamp), "HH:mm")}
+          </ThemedText>
+        </View>
+        {evidence.aiAnalysis ? (
+          <View style={styles.aiIndicator}>
+            <Feather name="cpu" size={10} color={Colors.dark.accent} />
+          </View>
+        ) : null}
       </AnimatedPressable>
     );
   }
 
   return (
     <AnimatedPressable
-      onPress={onPress}
+      onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       style={[styles.card, animatedStyle]}
+      testID={`evidence-${evidence.id}`}
     >
       <View style={styles.iconContainer}>
-        {evidence.type === "photo" && evidence.uri ? (
-          <Image source={{ uri: evidence.uri }} style={styles.thumbnail} />
+        {evidence.uri && (evidence.type === "photo" || evidence.type === "video") ? (
+          <View style={styles.thumbnailContainer}>
+            <Image source={{ uri: evidence.uri }} style={styles.thumbnail} contentFit="cover" />
+            {evidence.type === "video" ? (
+              <View style={styles.videoOverlay}>
+                <Feather name="play-circle" size={20} color={Colors.dark.text} />
+              </View>
+            ) : null}
+          </View>
         ) : (
-          <View style={styles.iconPlaceholder}>
-            <Feather name={getIcon()} size={24} color={Colors.dark.accent} />
+          <View style={[styles.iconCircle, { backgroundColor: getTypeColor() + "20" }]}>
+            <Feather name={getIcon()} size={24} color={getTypeColor()} />
           </View>
         )}
       </View>
+      
       <View style={styles.content}>
         <View style={styles.header}>
-          <ThemedText style={styles.type}>{getTypeLabel()}</ThemedText>
+          <View style={[styles.typeBadge, { backgroundColor: getTypeColor() + "20" }]}>
+            <Feather name={getIcon()} size={10} color={getTypeColor()} />
+            <ThemedText style={[styles.typeText, { color: getTypeColor() }]}>
+              {evidence.type.charAt(0).toUpperCase() + evidence.type.slice(1)}
+            </ThemedText>
+          </View>
           <ThemedText style={styles.time}>
-            {format(new Date(evidence.timestamp), "HH:mm:ss")}
+            {format(new Date(evidence.timestamp), "MMM d, HH:mm")}
           </ThemedText>
         </View>
-        {evidence.content ? (
-          <ThemedText style={styles.contentText} numberOfLines={2}>
+        
+        {evidence.type === "note" && evidence.content ? (
+          <ThemedText style={styles.notePreview} numberOfLines={2}>
             {evidence.content}
           </ThemedText>
         ) : null}
-        {evidence.latitude && evidence.longitude ? (
-          <View style={styles.locationRow}>
-            <Feather name="map-pin" size={10} color={Colors.dark.success} />
-            <ThemedText style={styles.locationText}>GPS Tagged</ThemedText>
+        
+        {evidence.aiAnalysis ? (
+          <View style={styles.aiAnalysisRow}>
+            <Feather name="cpu" size={12} color={Colors.dark.accent} />
+            <ThemedText style={styles.aiAnalysisText} numberOfLines={1}>
+              {evidence.aiAnalysis}
+            </ThemedText>
           </View>
         ) : null}
+        
+        <View style={styles.footer}>
+          {evidence.latitude && evidence.longitude ? (
+            <View style={styles.locationRow}>
+              <Feather name="map-pin" size={12} color={Colors.dark.success} />
+              <ThemedText style={styles.locationText}>GPS Tagged</ThemedText>
+            </View>
+          ) : (
+            <View style={styles.locationRow}>
+              <Feather name="map-pin" size={12} color={Colors.dark.textSecondary} />
+              <ThemedText style={styles.locationTextMuted}>No GPS</ThemedText>
+            </View>
+          )}
+          
+          {evidence.duration ? (
+            <ThemedText style={styles.duration}>
+              {Math.floor(evidence.duration / 60)}:{(evidence.duration % 60).toString().padStart(2, "0")}
+            </ThemedText>
+          ) : null}
+        </View>
       </View>
-      <Feather name="chevron-right" size={18} color={Colors.dark.textSecondary} />
+      
+      <Feather name="chevron-right" size={20} color={Colors.dark.textSecondary} />
     </AnimatedPressable>
   );
 }
@@ -128,15 +201,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.dark.backgroundDefault,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: Colors.dark.border,
     padding: Spacing.md,
     gap: Spacing.md,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
+    width: 56,
+    height: 56,
+  },
+  thumbnailContainer: {
+    width: 56,
+    height: 56,
     borderRadius: BorderRadius.sm,
     overflow: "hidden",
   },
@@ -144,69 +221,123 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  iconPlaceholder: {
-    width: "100%",
-    height: "100%",
-    backgroundColor: Colors.dark.backgroundSecondary,
+  iconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
   },
   content: {
     flex: 1,
-    gap: 2,
+    gap: Spacing.xs,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  type: {
-    fontSize: 14,
+  typeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  typeText: {
+    fontSize: 10,
     fontWeight: "600",
-    color: Colors.dark.text,
+    textTransform: "uppercase",
   },
   time: {
     fontSize: 12,
     color: Colors.dark.textSecondary,
-    fontVariant: ["tabular-nums"],
   },
-  contentText: {
+  notePreview: {
+    fontSize: 13,
+    color: Colors.dark.text,
+    lineHeight: 18,
+  },
+  aiAnalysisRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  aiAnalysisText: {
     fontSize: 12,
-    color: Colors.dark.textSecondary,
+    color: Colors.dark.accent,
+    flex: 1,
+  },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   locationRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
-    marginTop: 2,
+    gap: 4,
   },
   locationText: {
-    fontSize: 10,
+    fontSize: 11,
     color: Colors.dark.success,
+    fontWeight: "500",
+  },
+  locationTextMuted: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+  },
+  duration: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
   },
   compactCard: {
-    width: 70,
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  compactImage: {
-    width: 60,
-    height: 60,
-    borderRadius: BorderRadius.sm,
-  },
-  compactPlaceholder: {
-    width: 60,
-    height: 60,
-    borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 100,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: Colors.dark.border,
+    overflow: "hidden",
+  },
+  compactImageContainer: {
+    width: "100%",
+    height: 80,
+  },
+  compactImage: {
+    width: "100%",
+    height: "100%",
+  },
+  compactPlaceholder: {
+    width: "100%",
+    height: 80,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  videoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  compactInfo: {
+    padding: Spacing.sm,
+    gap: 2,
+  },
+  typeRow: {
+    flexDirection: "row",
   },
   compactTime: {
     fontSize: 10,
     color: Colors.dark.textSecondary,
-    fontVariant: ["tabular-nums"],
+  },
+  aiIndicator: {
+    position: "absolute",
+    top: Spacing.xs,
+    right: Spacing.xs,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: 8,
+    padding: 2,
   },
 });

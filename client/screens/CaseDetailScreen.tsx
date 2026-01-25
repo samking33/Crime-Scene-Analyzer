@@ -1,11 +1,13 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, FlatList, Pressable } from "react-native";
+import { View, StyleSheet, FlatList, Pressable, ScrollView, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp, NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 
 import { ThemedText } from "@/components/ThemedText";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -14,15 +16,17 @@ import { ActivityItem } from "@/components/ActivityItem";
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
 import { Colors, Spacing, BorderRadius, Fonts } from "@/constants/theme";
-import { getCase, getEvidence, getActivityLog, setActiveCase, createReport } from "@/lib/storage";
+import { getCase, getEvidence, getActivityLog, setActiveCase, createReport, updateReport, getProfile } from "@/lib/storage";
+import { getApiUrl } from "@/lib/query-client";
 import { format } from "date-fns";
-import type { Case, Evidence, ActivityLog } from "@/types/case";
+import type { Case, Evidence, ActivityLog, EvidenceType } from "@/types/case";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProp = NativeStackScreenProps<RootStackParamList, "CaseDetail">["route"];
 
 type TabType = "timeline" | "evidence" | "activity";
+type EvidenceFilter = "all" | EvidenceType;
 
 export default function CaseDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -35,7 +39,9 @@ export default function CaseDetailScreen() {
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [activityLog, setActivityLog] = useState<ActivityLog[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>("timeline");
+  const [evidenceFilter, setEvidenceFilter] = useState<EvidenceFilter>("all");
   const [isLoading, setIsLoading] = useState(true);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -69,9 +75,66 @@ export default function CaseDetailScreen() {
 
   const handleGenerateReport = async () => {
     if (!caseData) return;
+    
+    setIsGeneratingReport(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    await createReport(caseData);
-    navigation.navigate("Main", { screen: "ReportsTab" });
+    
+    try {
+      const profile = await getProfile();
+      
+      const url = new URL("/api/generate-report", getApiUrl());
+      const response = await fetch(url.toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseData,
+          evidence,
+          activityLog,
+          profile,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to generate report");
+      }
+      
+      const { html } = await response.json();
+      
+      const { uri } = await Print.printToFileAsync({ html });
+      
+      const report = await createReport(caseData);
+      await updateReport(report.id, { pdfUri: uri, status: "exported" });
+      
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: "application/pdf",
+          dialogTitle: `Share Report - ${caseData.caseId}`,
+        });
+      }
+      
+      navigation.navigate("Main", { screen: "ReportsTab" });
+    } catch (error) {
+      console.error("Failed to generate report:", error);
+      Alert.alert("Error", "Failed to generate report. Please try again.");
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  const handleEvidencePress = (item: Evidence) => {
+    navigation.navigate("EvidenceViewer", { evidence: item });
+  };
+
+  const filteredEvidence = evidenceFilter === "all"
+    ? evidence
+    : evidence.filter((e) => e.type === evidenceFilter);
+
+  const evidenceTypeCounts = {
+    all: evidence.length,
+    photo: evidence.filter((e) => e.type === "photo").length,
+    video: evidence.filter((e) => e.type === "video").length,
+    audio: evidence.filter((e) => e.type === "audio").length,
+    note: evidence.filter((e) => e.type === "note").length,
   };
 
   if (isLoading || !caseData) {
@@ -103,6 +166,27 @@ export default function CaseDetailScreen() {
     </Pressable>
   );
 
+  const renderEvidenceFilterButton = (filter: EvidenceFilter, label: string, icon: keyof typeof Feather.glyphMap) => (
+    <Pressable
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setEvidenceFilter(filter);
+      }}
+      style={[styles.filterButton, evidenceFilter === filter && styles.filterButtonActive]}
+    >
+      <Feather
+        name={icon}
+        size={14}
+        color={evidenceFilter === filter ? Colors.dark.buttonText : Colors.dark.textSecondary}
+      />
+      <ThemedText
+        style={[styles.filterLabel, evidenceFilter === filter && styles.filterLabelActive]}
+      >
+        {label} ({evidenceTypeCounts[filter]})
+      </ThemedText>
+    </Pressable>
+  );
+
   const renderTimelineContent = () => (
     <View style={styles.tabContent}>
       {evidence.length === 0 ? (
@@ -118,7 +202,7 @@ export default function CaseDetailScreen() {
           data={evidence}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <EvidenceCard evidence={item} onPress={() => {}} />
+            <EvidenceCard evidence={item} onPress={() => handleEvidencePress(item)} />
           )}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={styles.listContent}
@@ -130,12 +214,39 @@ export default function CaseDetailScreen() {
 
   const renderEvidenceContent = () => (
     <View style={styles.tabContent}>
-      {evidence.length === 0 ? (
-        <ThemedText style={styles.emptyTabText}>No evidence captured yet</ThemedText>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterScroll}
+        contentContainerStyle={styles.filterContainer}
+      >
+        {renderEvidenceFilterButton("all", "All", "grid")}
+        {renderEvidenceFilterButton("photo", "Photos", "image")}
+        {renderEvidenceFilterButton("video", "Videos", "video")}
+        {renderEvidenceFilterButton("audio", "Audio", "mic")}
+        {renderEvidenceFilterButton("note", "Notes", "file-text")}
+      </ScrollView>
+
+      {filteredEvidence.length === 0 ? (
+        <View style={styles.emptyFilterState}>
+          <Feather
+            name={evidenceFilter === "photo" ? "image" : evidenceFilter === "video" ? "video" : evidenceFilter === "audio" ? "mic" : evidenceFilter === "note" ? "file-text" : "grid"}
+            size={48}
+            color={Colors.dark.textSecondary}
+          />
+          <ThemedText style={styles.emptyTabText}>
+            No {evidenceFilter === "all" ? "evidence" : `${evidenceFilter}s`} captured yet
+          </ThemedText>
+        </View>
       ) : (
         <View style={styles.evidenceGrid}>
-          {evidence.map((item) => (
-            <EvidenceCard key={item.id} evidence={item} compact onPress={() => {}} />
+          {filteredEvidence.map((item) => (
+            <EvidenceCard
+              key={item.id}
+              evidence={item}
+              compact
+              onPress={() => handleEvidencePress(item)}
+            />
           ))}
         </View>
       )}
@@ -213,9 +324,9 @@ export default function CaseDetailScreen() {
             <Button
               onPress={handleGenerateReport}
               style={styles.reportButton}
-              disabled={evidence.length === 0}
+              disabled={evidence.length === 0 || isGeneratingReport}
             >
-              Generate Report
+              {isGeneratingReport ? "Generating PDF..." : "Generate PDF Report"}
             </Button>
           </View>
 
@@ -352,6 +463,38 @@ const styles = StyleSheet.create({
   separator: {
     height: Spacing.md,
   },
+  filterScroll: {
+    marginBottom: Spacing.lg,
+    marginHorizontal: -Spacing.lg,
+  },
+  filterContainer: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+  },
+  filterButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  filterButtonActive: {
+    backgroundColor: Colors.dark.accent,
+    borderColor: Colors.dark.accent,
+  },
+  filterLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: Colors.dark.textSecondary,
+  },
+  filterLabelActive: {
+    color: Colors.dark.buttonText,
+  },
   evidenceGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -363,6 +506,12 @@ const styles = StyleSheet.create({
   emptyTabText: {
     textAlign: "center",
     color: Colors.dark.textSecondary,
-    marginTop: Spacing["3xl"],
+    marginTop: Spacing.lg,
+  },
+  emptyFilterState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing["3xl"],
+    gap: Spacing.md,
   },
 });
