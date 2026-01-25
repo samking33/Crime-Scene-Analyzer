@@ -12,6 +12,8 @@ import RecordAudioScreen from "@/screens/RecordAudioScreen";
 import EditProfileScreen from "@/screens/EditProfileScreen";
 import ActivityLogScreen from "@/screens/ActivityLogScreen";
 import EvidenceViewerScreen from "@/screens/EvidenceViewerScreen";
+import CategoryDashboardScreen from "@/screens/CategoryDashboardScreen";
+import CategoryDetailsScreen from "@/screens/CategoryDetailsScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { Colors } from "@/constants/theme";
 
@@ -27,6 +29,8 @@ export type RootStackParamList = {
   EditProfile: undefined;
   ActivityLog: undefined;
   EvidenceViewer: { evidence: Evidence };
+  CategoryDashboard: { caseId: string };
+  CategoryDetails: { caseId: string; categoryId: number; categoryName: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -110,6 +114,20 @@ export default function RootStackNavigator() {
           presentation: "fullScreenModal",
           headerShown: false,
         }}
+      />
+      <Stack.Screen
+        name="CategoryDashboard"
+        component={CategoryDashboardScreen}
+        options={{
+          headerTitle: "Categories",
+        }}
+      />
+      <Stack.Screen
+        name="CategoryDetails"
+        component={CategoryDetailsScreen}
+        options={({ route }) => ({
+          headerTitle: route.params.categoryName,
+        })}
       />
     </Stack.Navigator>
   );

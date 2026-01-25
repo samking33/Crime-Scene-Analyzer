@@ -11,9 +11,49 @@ interface DetectedObject {
   id: string;
   label: string;
   confidence: "high" | "medium" | "low";
-  category: "weapon" | "vehicle" | "person" | "document" | "drug" | "biometric" | "other";
+  category: "weapon" | "vehicle" | "person" | "document" | "drug" | "biometric" | "electronics" | "markers" | "tools" | "other";
+  categoryId: number;
   location: "top-left" | "top-center" | "top-right" | "center-left" | "center" | "center-right" | "bottom-left" | "bottom-center" | "bottom-right";
   description?: string;
+}
+
+const categoryKeywords: Record<number, string[]> = {
+  1: ['gun', 'pistol', 'rifle', 'knife', 'blade', 'weapon', 'firearm', 'ammunition', 'bullet', 'shell casing', 'revolver', 'shotgun', 'machete', 'brass knuckles'],
+  2: ['car', 'truck', 'van', 'motorcycle', 'bicycle', 'vehicle', 'suv', 'sedan', 'license plate', 'tire', 'windshield', 'headlight', 'bumper'],
+  3: ['person', 'individual', 'suspect', 'victim', 'witness', 'face', 'body', 'human', 'male', 'female', 'man', 'woman', 'child'],
+  4: ['blood', 'fingerprint', 'dna', 'bodily fluid', 'footprint', 'shoe print', 'hair', 'saliva', 'tissue', 'stain'],
+  5: ['drugs', 'narcotics', 'pills', 'powder', 'syringe', 'paraphernalia', 'marijuana', 'cocaine', 'heroin', 'meth', 'substance', 'needle'],
+  6: ['document', 'paper', 'id card', 'passport', 'receipt', 'letter', 'note', 'contract', 'certificate', 'license', 'envelope', 'folder'],
+  7: ['phone', 'computer', 'laptop', 'tablet', 'camera', 'usb', 'hard drive', 'sim card', 'charger', 'battery', 'device', 'electronic', 'smartphone', 'memory card'],
+  8: ['evidence marker', 'cone', 'flag', 'numbered marker', 'tape', 'barrier', 'crime scene tape', 'yellow tape', 'marker'],
+  9: ['hammer', 'screwdriver', 'crowbar', 'lockpick', 'tool', 'pliers', 'wrench', 'drill', 'saw', 'wire cutter'],
+  10: []
+};
+
+const categoryIdToName: Record<number, DetectedObject["category"]> = {
+  1: "weapon",
+  2: "vehicle",
+  3: "person",
+  4: "biometric",
+  5: "drug",
+  6: "document",
+  7: "electronics",
+  8: "markers",
+  9: "tools",
+  10: "other"
+};
+
+function categorizeObjectByKeyword(objectName: string): { categoryId: number; category: DetectedObject["category"] } {
+  const nameLower = objectName.toLowerCase();
+  
+  for (const [categoryId, keywords] of Object.entries(categoryKeywords)) {
+    const id = parseInt(categoryId);
+    if (keywords.some(keyword => nameLower.includes(keyword))) {
+      return { categoryId: id, category: categoryIdToName[id] };
+    }
+  }
+  
+  return { categoryId: 10, category: "other" };
 }
 
 function generateObjectId(): string {
@@ -34,21 +74,7 @@ function parseDetectedObjects(content: string): DetectedObject[] {
       if (details.includes("high")) confidence = "high";
       else if (details.includes("low")) confidence = "low";
       
-      let category: DetectedObject["category"] = "other";
-      const labelLower = label.toLowerCase();
-      if (labelLower.includes("weapon") || labelLower.includes("gun") || labelLower.includes("knife") || labelLower.includes("firearm")) {
-        category = "weapon";
-      } else if (labelLower.includes("vehicle") || labelLower.includes("car") || labelLower.includes("truck") || labelLower.includes("license")) {
-        category = "vehicle";
-      } else if (labelLower.includes("person") || labelLower.includes("body") || labelLower.includes("individual") || labelLower.includes("suspect")) {
-        category = "person";
-      } else if (labelLower.includes("document") || labelLower.includes("paper") || labelLower.includes("id") || labelLower.includes("card")) {
-        category = "document";
-      } else if (labelLower.includes("drug") || labelLower.includes("substance") || labelLower.includes("powder") || labelLower.includes("pill")) {
-        category = "drug";
-      } else if (labelLower.includes("blood") || labelLower.includes("fingerprint") || labelLower.includes("dna") || labelLower.includes("stain")) {
-        category = "biometric";
-      }
+      const { categoryId, category } = categorizeObjectByKeyword(label);
       
       let location: DetectedObject["location"] = "center";
       if (details.includes("top-left")) location = "top-left";
@@ -65,6 +91,7 @@ function parseDetectedObjects(content: string): DetectedObject[] {
         label,
         confidence,
         category,
+        categoryId,
         location,
         description: match[2].trim(),
       });

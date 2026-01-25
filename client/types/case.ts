@@ -50,7 +50,7 @@ export interface TimelineEvent {
   category?: ObjectCategory;
 }
 
-export type ObjectCategory = "weapon" | "vehicle" | "person" | "document" | "drug" | "biometric" | "other";
+export type ObjectCategory = "weapon" | "vehicle" | "person" | "document" | "drug" | "biometric" | "electronics" | "markers" | "tools" | "other";
 export type ConfidenceLevel = "high" | "medium" | "low";
 export type ObjectLocation = "top-left" | "top-center" | "top-right" | "center-left" | "center" | "center-right" | "bottom-left" | "bottom-center" | "bottom-right";
 

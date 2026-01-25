@@ -1,0 +1,594 @@
+Object Categorization & Category-Based Display System
+You are implementing an intelligent categorization system that organizes detected objects from OpenAI GPT-4o Vision API into predefined law enforcement categories with a professional category-based UI using React Native with Expo.
+Requirements:
+1. Category Definition & Setup:
+
+Store categories in AsyncStorage on app initialization
+Create category data structure:
+
+javascript// Category schema
+const categories = [
+  {
+    id: 1,
+    categoryName: 'weapons',
+    displayName: 'Weapons',
+    iconName: 'shield-alert',
+    iconLibrary: 'MaterialCommunityIcons',
+    colorCode: '#D32F2F',
+    priority: 1,
+    description: 'Firearms, knives, and other weapons'
+  },
+  // ... additional categories
+];
+
+Predefine these categories with priority order:
+
+Weapons (Priority 1) - Color: #D32F2F (Red) - Icon: shield-alert
+Vehicles (Priority 2) - Color: #F57C00 (Orange) - Icon: car
+Persons (Priority 3) - Color: #1976D2 (Blue) - Icon: account
+Biometrics (Priority 4) - Color: #7B1FA2 (Purple) - Icon: fingerprint
+Drugs/Substances (Priority 5) - Color: #C62828 (Dark Red) - Icon: alert
+Documents (Priority 6) - Color: #388E3C (Green) - Icon: file-document
+Electronics (Priority 7) - Color: #00796B (Teal) - Icon: devices
+Evidence Markers (Priority 8) - Color: #FBC02D (Yellow) - Icon: flag
+Tools (Priority 9) - Color: #5D4037 (Brown) - Icon: tools
+Other (Priority 10) - Color: #616161 (Gray) - Icon: dots-horizontal
+
+
+
+2. AsyncStorage Data Structure:
+javascript// Store categorized evidence in AsyncStorage
+// Key format: 'detectedObjects_{caseId}'
+{
+  caseId: string,
+  objects: [
+    {
+      id: string, // UUID generated with expo-crypto
+      evidenceId: string,
+      objectName: string,
+      confidence: 'high' | 'medium' | 'low',
+      location: string,
+      categoryId: number,
+      categoryName: string,
+      detectedAt: number, // Unix timestamp
+      boundingBox: { x: number, y: number, width: number, height: number } // Optional
+    }
+  ]
+}
+3. Backend API Endpoints (Express.js on port 5000):
+Create these endpoints in your Express server:
+javascript// POST /api/analyze-evidence
+// Receives image, sends to OpenAI GPT-4o Vision, returns detected objects
+app.post('/api/analyze-evidence', async (req, res) => {
+  // 1. Receive base64 image from frontend
+  // 2. Call OpenAI GPT-4o Vision API with prompt:
+  const prompt = `Analyze this crime scene evidence photo. Detect and list ALL visible objects relevant to law enforcement investigation including: weapons, vehicles, persons, license plates, drugs/substances, blood stains, fingerprints, documents, electronic devices, evidence markers, and any other notable items. 
+  
+  For each detected object, provide a JSON response in this exact format:
+  {
+    "objects": [
+      {
+        "name": "object name",
+        "confidence": "high/medium/low",
+        "location": "description of location in image",
+        "category_hint": "suggested category"
+      }
+    ],
+    "summary": "2-3 sentence professional summary of evidence"
+  }`;
+  
+  // 3. Parse OpenAI response
+  // 4. Return to frontend
+});
+
+// POST /api/categorize-objects
+// Receives detected objects array, returns with assigned categories
+app.post('/api/categorize-objects', async (req, res) => {
+  // Implement categorization logic
+  // Return objects with categoryId and categoryName added
+});
+4. Automatic Categorization Logic (Backend):
+Create categorization service in your Express server:
+javascript// backend/services/categorizationService.js
+
+const categoryKeywords = {
+  1: ['gun', 'pistol', 'rifle', 'knife', 'blade', 'weapon', 'firearm', 'ammunition', 'bullet', 'shell casing', 'revolver', 'shotgun'],
+  2: ['car', 'truck', 'van', 'motorcycle', 'bicycle', 'vehicle', 'SUV', 'sedan', 'license plate', 'tire', 'windshield'],
+  3: ['person', 'individual', 'suspect', 'victim', 'witness', 'face', 'body', 'human', 'male', 'female'],
+  4: ['blood', 'fingerprint', 'DNA', 'bodily fluid', 'footprint', 'shoe print', 'hair', 'saliva', 'tissue'],
+  5: ['drugs', 'narcotics', 'pills', 'powder', 'syringe', 'paraphernalia', 'marijuana', 'cocaine', 'heroin', 'meth'],
+  6: ['document', 'paper', 'ID card', 'passport', 'receipt', 'letter', 'note', 'contract', 'certificate', 'license'],
+  7: ['phone', 'computer', 'laptop', 'tablet', 'camera', 'USB', 'hard drive', 'SIM card', 'charger', 'battery'],
+  8: ['evidence marker', 'cone', 'flag', 'numbered marker', 'tape', 'barrier', 'crime scene tape'],
+  9: ['hammer', 'screwdriver', 'crowbar', 'lockpick', 'tool', 'pliers', 'wrench', 'drill'],
+  10: [] // Other - default
+};
+
+function categorizeObject(objectName) {
+  const nameLower = objectName.toLowerCase();
+  
+  // Find matching category
+  for (const [categoryId, keywords] of Object.entries(categoryKeywords)) {
+    if (keywords.some(keyword => nameLower.includes(keyword))) {
+      return parseInt(categoryId);
+    }
+  }
+  
+  return 10; // Default to "Other"
+}
+
+module.exports = { categorizeObject };
+5. Frontend Data Fetching with TanStack Query:
+javascript// hooks/useEvidenceAnalysis.js
+import { useMutation } from '@tanstack/react-query';
+
+export const useAnalyzeEvidence = () => {
+  return useMutation({
+    mutationFn: async ({ imageUri, caseId }) => {
+      // Convert image to base64
+      const base64 = await FileSystem.readAsStringAsync(imageUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      
+      // Send to backend
+      const response = await fetch('http://localhost:5000/api/analyze-evidence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64, caseId }),
+      });
+      
+      return response.json();
+    },
+    onSuccess: async (data, { caseId, evidenceId }) => {
+      // Store categorized objects in AsyncStorage
+      const existingData = await AsyncStorage.getItem(`detectedObjects_${caseId}`);
+      const objects = existingData ? JSON.parse(existingData) : { caseId, objects: [] };
+      
+      // Add new objects with unique IDs
+      const newObjects = data.objects.map(obj => ({
+        ...obj,
+        id: crypto.randomUUID(),
+        evidenceId,
+        detectedAt: Date.now(),
+      }));
+      
+      objects.objects.push(...newObjects);
+      await AsyncStorage.setItem(`detectedObjects_${caseId}`, JSON.stringify(objects));
+    },
+  });
+};
+6. Category Dashboard Screen:
+javascript// screens/CategoryDashboardScreen.js
+import { FlatList, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
+import Animated, { FadeIn, Layout } from 'react-native-reanimated';
+
+export default function CategoryDashboardScreen({ route }) {
+  const { caseId } = route.params;
+  
+  const { data: categoryStats } = useQuery({
+    queryKey: ['categoryStats', caseId],
+    queryFn: async () => {
+      // Fetch from AsyncStorage
+      const data = await AsyncStorage.getItem(`detectedObjects_${caseId}`);
+      if (!data) return [];
+      
+      const { objects } = JSON.parse(data);
+      
+      // Calculate stats per category
+      const stats = categories.map(category => {
+        const categoryObjects = objects.filter(obj => obj.categoryId === category.id);
+        const avgConfidence = calculateAvgConfidence(categoryObjects);
+        
+        return {
+          ...category,
+          count: categoryObjects.length,
+          avgConfidence,
+        };
+      });
+      
+      return stats.sort((a, b) => a.priority - b.priority);
+    },
+  });
+  
+  const renderCategoryCard = ({ item }) => (
+    <Animated.View 
+      entering={FadeIn}
+      layout={Layout.springify()}
+    >
+      <TouchableOpacity
+        style={[styles.card, { borderLeftColor: item.colorCode }]}
+        onPress={() => navigation.navigate('CategoryDetails', { category: item, caseId })}
+      >
+        <MaterialCommunityIcons 
+          name={item.iconName} 
+          size={40} 
+          color={item.colorCode} 
+        />
+        <Text style={styles.categoryName}>{item.displayName}</Text>
+        <Text style={styles.count}>{item.count}</Text>
+        <ConfidenceBadge confidence={item.avgConfidence} />
+        {item.priority <= 2 && <PriorityBadge />}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+  
+  return (
+    <FlatList
+      data={categoryStats}
+      renderItem={renderCategoryCard}
+      keyExtractor={item => item.id.toString()}
+      numColumns={2}
+      contentContainerStyle={styles.container}
+    />
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    flex: 1,
+    margin: 8,
+    padding: 16,
+    backgroundColor: '#1E1E1E',
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  categoryName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginTop: 8,
+  },
+  count: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginTop: 4,
+  },
+});
+7. Category Details Screen:
+javascript// screens/CategoryDetailsScreen.js
+import { useQuery } from '@tanstack/react-query';
+import { format } from 'date-fns';
+
+export default function CategoryDetailsScreen({ route }) {
+  const { category, caseId } = route.params;
+  
+  const { data: categoryObjects } = useQuery({
+    queryKey: ['categoryObjects', caseId, category.id],
+    queryFn: async () => {
+      const data = await AsyncStorage.getItem(`detectedObjects_${caseId}`);
+      if (!data) return [];
+      
+      const { objects } = JSON.parse(data);
+      return objects.filter(obj => obj.categoryId === category.id);
+    },
+  });
+  
+  return (
+    <View style={styles.container}>
+      {/* Category Header */}
+      <View style={styles.header}>
+        <MaterialCommunityIcons 
+          name={category.iconName} 
+          size={48} 
+          color={category.colorCode} 
+        />
+        <Text style={styles.title}>{category.displayName}</Text>
+        <Text style={styles.subtitle}>{categoryObjects?.length || 0} objects detected</Text>
+      </View>
+      
+      {/* Filter & Sort Controls */}
+      <FilterSortBar onFilterChange={setFilters} onSortChange={setSort} />
+      
+      {/* Objects List */}
+      <FlatList
+        data={categoryObjects}
+        renderItem={({ item }) => (
+          <ObjectCard 
+            object={item} 
+            categoryColor={category.colorCode}
+          />
+        )}
+        keyExtractor={item => item.id}
+      />
+    </View>
+  );
+}
+8. Evidence Photo View with Categories:
+javascript// components/EvidencePhotoView.js
+import { ScrollView, View, Text, TouchableOpacity } from 'react-native';
+
+export default function EvidencePhotoView({ evidenceId, caseId }) {
+  const { data: detectedObjects } = useQuery({
+    queryKey: ['evidenceObjects', evidenceId],
+    queryFn: async () => {
+      const data = await AsyncStorage.getItem(`detectedObjects_${caseId}`);
+      if (!data) return [];
+      
+      const { objects } = JSON.parse(data);
+      return objects.filter(obj => obj.evidenceId === evidenceId);
+    },
+  });
+  
+  // Group objects by category
+  const groupedByCategory = detectedObjects?.reduce((acc, obj) => {
+    if (!acc[obj.categoryName]) acc[obj.categoryName] = [];
+    acc[obj.categoryName].push(obj);
+    return acc;
+  }, {});
+  
+  return (
+    <View>
+      {/* Category Chips */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {Object.keys(groupedByCategory || {}).map(categoryName => (
+          <TouchableOpacity
+            key={categoryName}
+            style={[styles.chip, { backgroundColor: getCategoryColor(categoryName) }]}
+            onPress={() => navigateToCategory(categoryName)}
+          >
+            <Text style={styles.chipText}>{categoryName}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+      
+      {/* Grouped Objects Display */}
+      {Object.entries(groupedByCategory || {}).map(([categoryName, objects]) => (
+        <View key={categoryName} style={styles.categoryGroup}>
+          <Text style={[styles.categoryTitle, { color: getCategoryColor(categoryName) }]}>
+            {getCategoryIcon(categoryName)} {categoryName} ({objects.length})
+          </Text>
+          {objects.map(obj => (
+            <Text key={obj.id} style={styles.objectItem}>
+              - {obj.objectName} ({obj.confidence} confidence)
+            </Text>
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+9. Category Statistics with Charts:
+javascript// components/CategoryAnalytics.js
+import { PieChart } from 'react-native-chart-kit';
+import { Dimensions } from 'react-native';
+
+export default function CategoryAnalytics({ caseId }) {
+  const { data: stats } = useQuery({
+    queryKey: ['categoryAnalytics', caseId],
+    queryFn: async () => {
+      const data = await AsyncStorage.getItem(`detectedObjects_${caseId}`);
+      if (!data) return null;
+      
+      const { objects } = JSON.parse(data);
+      
+      // Calculate distribution
+      const distribution = {};
+      objects.forEach(obj => {
+        distribution[obj.categoryName] = (distribution[obj.categoryName] || 0) + 1;
+      });
+      
+      return {
+        mostCommon: Object.entries(distribution).sort((a, b) => b[1] - a[1])[0],
+        distribution,
+        highPriorityAlerts: objects.filter(obj => obj.categoryId <= 2).length,
+      };
+    },
+  });
+  
+  const chartData = Object.entries(stats?.distribution || {}).map(([name, count], index) => ({
+    name,
+    count,
+    color: categories.find(c => c.categoryName === name.toLowerCase())?.colorCode || '#999',
+    legendFontColor: '#FFF',
+    legendFontSize: 12,
+  }));
+  
+  return (
+    <View>
+      <Text style={styles.statTitle}>Most Common Category</Text>
+      <Text style={styles.statValue}>
+        {stats?.mostCommon?.[0]} ({stats?.mostCommon?.[1]} detections)
+      </Text>
+      
+      {stats?.highPriorityAlerts > 0 && (
+        <View style={styles.alert}>
+          <Text style={styles.alertText}>
+            ⚠️ {stats.highPriorityAlerts} high-priority items detected
+          </Text>
+        </View>
+      )}
+      
+      <PieChart
+        data={chartData}
+        width={Dimensions.get('window').width - 32}
+        height={220}
+        chartConfig={{
+          color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+        }}
+        accessor="count"
+        backgroundColor="transparent"
+        paddingLeft="15"
+      />
+    </View>
+  );
+}
+10. PDF Report Integration with expo-print:
+javascript// utils/generatePDFReport.js
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { format } from 'date-fns';
+
+export async function generateCategoryReport(caseId) {
+  // Fetch all data
+  const data = await AsyncStorage.getItem(`detectedObjects_${caseId}`);
+  const { objects } = JSON.parse(data);
+  
+  // Group by category
+  const byCategory = objects.reduce((acc, obj) => {
+    if (!acc[obj.categoryName]) acc[obj.categoryName] = [];
+    acc[obj.categoryName].push(obj);
+    return acc;
+  }, {});
+  
+  // Generate HTML
+  const html = `
+    <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          .category-section { margin-bottom: 30px; page-break-inside: avoid; }
+          .category-header { 
+            color: #333; 
+            border-left: 4px solid;
+            padding-left: 12px;
+            margin-bottom: 12px;
+          }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; }
+          .high-priority { background-color: #ffebee; }
+        </style>
+      </head>
+      <body>
+        <h1>Evidence by Category</h1>
+        <p>Case ID: ${caseId}</p>
+        <p>Generated: ${format(new Date(), 'PPpp')}</p>
+        
+        ${Object.entries(byCategory).map(([categoryName, objects]) => {
+          const category = categories.find(c => c.categoryName === categoryName);
+          return `
+            <div class="category-section ${category.priority <= 2 ? 'high-priority' : ''}">
+              <h2 class="category-header" style="border-left-color: ${category.colorCode}">
+                ${category.displayName} (${objects.length})
+              </h2>
+              <table>
+                <tr>
+                  <th>Object</th>
+                  <th>Confidence</th>
+                  <th>Location</th>
+                  <th>Detected At</th>
+                </tr>
+                ${objects.map(obj => `
+                  <tr>
+                    <td>${obj.objectName}</td>
+                    <td>${obj.confidence}</td>
+                    <td>${obj.location}</td>
+                    <td>${format(obj.detectedAt, 'PPpp')}</td>
+                  </tr>
+                `).join('')}
+              </table>
+            </div>
+          `;
+        }).join('')}
+      </body>
+    </html>
+  `;
+  
+  // Generate PDF
+  const { uri } = await Print.printToFileAsync({ html });
+  
+  // Share
+  await Sharing.shareAsync(uri);
+}
+11. Navigation Setup:
+javascript// navigation/AppNavigator.js
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createStackNavigator } from '@react-navigation/stack';
+
+const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
+
+function CaseStack() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen name="CaseDetail" component={CaseDetailScreen} />
+      <Stack.Screen name="CategoryDashboard" component={CategoryDashboardScreen} />
+      <Stack.Screen name="CategoryDetails" component={CategoryDetailsScreen} />
+    </Stack.Navigator>
+  );
+}
+
+export default function AppNavigator() {
+  return (
+    <Tab.Navigator>
+      <Tab.Screen name="Cases" component={CaseStack} />
+      <Tab.Screen name="Map" component={MapScreen} />
+      <Tab.Screen name="Timeline" component={TimelineScreen} />
+    </Tab.Navigator>
+  );
+}
+12. Animations with react-native-reanimated:
+javascript// components/CategoryCard.js
+import Animated, { 
+  useAnimatedStyle, 
+  withSpring,
+  useSharedValue 
+} from 'react-native-reanimated';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+
+export function CategoryCard({ category, onPress }) {
+  const scale = useSharedValue(1);
+  
+  const tap = Gesture.Tap()
+    .onBegin(() => {
+      scale.value = withSpring(0.95);
+    })
+    .onFinalize(() => {
+      scale.value = withSpring(1);
+    })
+    .onEnd(() => {
+      onPress();
+    });
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+  
+  return (
+    <GestureDetector gesture={tap}>
+      <Animated.View style={[styles.card, animatedStyle]}>
+        {/* Card content */}
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+Implementation Checklist:
+✅ Backend (Express on port 5000):
+
+ Create /api/analyze-evidence endpoint with OpenAI GPT-4o Vision integration
+ Create /api/categorize-objects endpoint with categorization logic
+ Implement category keyword matching service
+ Add error handling and logging
+
+✅ Frontend (Expo on port 8081):
+
+ Set up TanStack Query with category-related queries
+ Create AsyncStorage structure for categorized objects
+ Build CategoryDashboardScreen with FlatList
+ Build CategoryDetailsScreen with filtering
+ Integrate category chips in EvidencePhotoView
+ Add category analytics with react-native-chart-kit
+ Implement PDF generation with expo-print
+ Add animations with react-native-reanimated
+ Set up navigation with React Navigation
+
+✅ Data Flow:
+
+Photo captured with expo-camera
+Sent to Express backend at localhost:5000/api/analyze-evidence
+Backend calls OpenAI GPT-4o Vision API
+Response categorized using keyword matching
+Results sent back to frontend
+Stored in AsyncStorage with TanStack Query mutation
+UI updates automatically via query invalidation
+PDF generated using expo-print when requested
+
+Provide production-ready code following Expo best practices, with proper error boundaries, loading states, and offline support using AsyncStorage.
