@@ -7,8 +7,74 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
+interface DetectedObject {
+  id: string;
+  label: string;
+  confidence: "high" | "medium" | "low";
+  category: "weapon" | "vehicle" | "person" | "document" | "drug" | "biometric" | "other";
+  location: "top-left" | "top-center" | "top-right" | "center-left" | "center" | "center-right" | "bottom-left" | "bottom-center" | "bottom-right";
+  description?: string;
+}
+
+function generateObjectId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+}
+
+function parseDetectedObjects(content: string): DetectedObject[] {
+  const objects: DetectedObject[] = [];
+  const lines = content.split('\n').filter(line => line.trim());
+  
+  for (const line of lines) {
+    const match = line.match(/^[-•*]?\s*(.+?):\s*(.+)$/);
+    if (match) {
+      const label = match[1].trim();
+      const details = match[2].trim().toLowerCase();
+      
+      let confidence: "high" | "medium" | "low" = "medium";
+      if (details.includes("high")) confidence = "high";
+      else if (details.includes("low")) confidence = "low";
+      
+      let category: DetectedObject["category"] = "other";
+      const labelLower = label.toLowerCase();
+      if (labelLower.includes("weapon") || labelLower.includes("gun") || labelLower.includes("knife") || labelLower.includes("firearm")) {
+        category = "weapon";
+      } else if (labelLower.includes("vehicle") || labelLower.includes("car") || labelLower.includes("truck") || labelLower.includes("license")) {
+        category = "vehicle";
+      } else if (labelLower.includes("person") || labelLower.includes("body") || labelLower.includes("individual") || labelLower.includes("suspect")) {
+        category = "person";
+      } else if (labelLower.includes("document") || labelLower.includes("paper") || labelLower.includes("id") || labelLower.includes("card")) {
+        category = "document";
+      } else if (labelLower.includes("drug") || labelLower.includes("substance") || labelLower.includes("powder") || labelLower.includes("pill")) {
+        category = "drug";
+      } else if (labelLower.includes("blood") || labelLower.includes("fingerprint") || labelLower.includes("dna") || labelLower.includes("stain")) {
+        category = "biometric";
+      }
+      
+      let location: DetectedObject["location"] = "center";
+      if (details.includes("top-left")) location = "top-left";
+      else if (details.includes("top-right")) location = "top-right";
+      else if (details.includes("top-center") || details.includes("top center")) location = "top-center";
+      else if (details.includes("bottom-left")) location = "bottom-left";
+      else if (details.includes("bottom-right")) location = "bottom-right";
+      else if (details.includes("bottom-center") || details.includes("bottom center")) location = "bottom-center";
+      else if (details.includes("center-left") || details.includes("left")) location = "center-left";
+      else if (details.includes("center-right") || details.includes("right")) location = "center-right";
+      
+      objects.push({
+        id: generateObjectId(),
+        label,
+        confidence,
+        category,
+        location,
+        description: match[2].trim(),
+      });
+    }
+  }
+  
+  return objects;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Image analysis endpoint for crime scene photos
   app.post("/api/analyze-image", async (req, res) => {
     try {
       const { image } = req.body;
@@ -17,20 +83,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Image data is required" });
       }
 
-      const response = await openai.chat.completions.create({
+      const detectionResponse = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
             role: "system",
-            content: `You are an AI assistant helping law enforcement analyze crime scene photographs. 
-Analyze the image and provide a concise but comprehensive description including:
-1. Key objects and items visible
-2. Potential evidence items (weapons, documents, substances, vehicles, etc.)
-3. Environmental details (location type, lighting, time indicators)
-4. Any notable features that could be relevant to an investigation
+            content: `You are an expert crime scene analyst. Analyze this crime scene evidence photo and detect ALL visible objects relevant to law enforcement investigation.
 
-Be factual and objective. Focus on what is clearly visible. Do not speculate about crimes or guilt.
-Keep your response to 2-3 sentences maximum.`
+For EACH detected object, provide one line in this exact format:
+- Object Name: confidence level (high/medium/low), location in image (top-left, top-center, top-right, center-left, center, center-right, bottom-left, bottom-center, bottom-right)
+
+Focus on detecting:
+- Weapons (firearms, knives, blunt objects)
+- Vehicles and license plates
+- Persons or bodies
+- Drugs/substances
+- Blood stains or fingerprints
+- Documents and electronic devices
+- Evidence markers
+- Any other notable items
+
+Be thorough and objective. List every relevant visible item.`
           },
           {
             role: "user",
@@ -44,17 +117,49 @@ Keep your response to 2-3 sentences maximum.`
               },
               {
                 type: "text",
-                text: "Analyze this crime scene photograph and describe what you see, focusing on potential evidence and key details."
+                text: "Analyze this crime scene evidence photo. Detect and list ALL visible objects relevant to law enforcement investigation."
               }
             ]
           }
         ],
-        max_tokens: 300,
+        max_tokens: 1000,
       });
 
-      const analysis = response.choices[0]?.message?.content || "Unable to analyze image";
+      const detectionContent = detectionResponse.choices[0]?.message?.content || "";
+      const detectedObjects = parseDetectedObjects(detectionContent);
       
-      res.json({ analysis });
+      const objectList = detectedObjects.map(obj => obj.label).join(", ");
+      
+      let aiSummary = "";
+      if (detectedObjects.length > 0) {
+        const summaryResponse = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are a professional crime scene analyst. Provide brief, objective summaries of evidence photos."
+            },
+            {
+              role: "user",
+              content: `Based on these detected objects: [${objectList}], provide a brief 2-3 sentence professional summary of what this evidence photo shows from a law enforcement perspective. Be factual and objective.`
+            }
+          ],
+          max_tokens: 200,
+        });
+        aiSummary = summaryResponse.choices[0]?.message?.content || "";
+      }
+
+      res.json({ 
+        detectedObjects,
+        aiSummary,
+        analysis: aiSummary || detectionContent,
+        objectCount: detectedObjects.length,
+        confidenceDistribution: {
+          high: detectedObjects.filter(o => o.confidence === "high").length,
+          medium: detectedObjects.filter(o => o.confidence === "medium").length,
+          low: detectedObjects.filter(o => o.confidence === "low").length,
+        }
+      });
     } catch (error) {
       console.error("Error analyzing image:", error);
       res.status(500).json({ error: "Failed to analyze image" });

@@ -27,12 +27,21 @@ export interface Evidence {
   duration?: number;
   detectedObjects?: DetectedObject[];
   aiAnalysis?: string;
+  aiSummary?: string;
+  analysisStatus?: "pending" | "analyzing" | "completed" | "failed";
 }
 
+export type ObjectCategory = "weapon" | "vehicle" | "person" | "document" | "drug" | "biometric" | "other";
+export type ConfidenceLevel = "high" | "medium" | "low";
+export type ObjectLocation = "top-left" | "top-center" | "top-right" | "center-left" | "center" | "center-right" | "bottom-left" | "bottom-center" | "bottom-right";
+
 export interface DetectedObject {
+  id: string;
   label: string;
-  confidence: number;
-  category: "weapon" | "vehicle" | "person" | "document" | "drug" | "other";
+  confidence: ConfidenceLevel;
+  category: ObjectCategory;
+  location: ObjectLocation;
+  description?: string;
 }
 
 export interface ActivityLog {
