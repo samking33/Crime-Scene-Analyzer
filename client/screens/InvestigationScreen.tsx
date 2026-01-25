@@ -334,7 +334,10 @@ export default function InvestigationScreen() {
       videoRecordingEndTime: videoEndTimestamp,
     });
     
-    await processAllPendingAnalysis();
+    if (pendingAnalysisList.length > 0) {
+      console.log(`Starting AI analysis for ${pendingAnalysisList.length} photos...`);
+      processAllPendingAnalysis();
+    }
   };
 
   const getCurrentLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
