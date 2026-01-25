@@ -49,6 +49,7 @@ client/
 │   └── useTheme.ts            # Theme hook
 ├── lib/
 │   ├── ai.ts                  # AI analysis utilities
+│   ├── categories.ts          # Category definitions and categorized objects storage
 │   ├── query-client.ts        # React Query setup
 │   ├── storage.ts             # AsyncStorage utilities
 │   └── timeline.ts            # Timeline utilities (formatting, calculations)
@@ -60,6 +61,8 @@ client/
 │   ├── AddNoteScreen.tsx      # Add note modal
 │   ├── CaseDetailScreen.tsx   # Case details with filtering
 │   ├── CasesScreen.tsx        # Cases list (home)
+│   ├── CategoryDashboardScreen.tsx # Category stats grid with 10 categories
+│   ├── CategoryDetailsScreen.tsx # Filtered/sorted objects by category
 │   ├── EditProfileScreen.tsx  # Profile editor
 │   ├── EvidenceViewerScreen.tsx # Evidence viewer with gestures
 │   ├── InvestigationScreen.tsx # Active investigation with camera
@@ -82,17 +85,29 @@ server/
 
 ## AI Object Detection System
 When a photo is captured, the AI automatically:
-1. Detects all visible objects relevant to law enforcement (weapons, vehicles, persons, documents, drugs, blood/fingerprints)
+1. Detects all visible objects relevant to law enforcement
 2. Assigns confidence levels (high/medium/low) and locations in image
 3. Generates a professional 2-3 sentence summary
-4. Categories with visual overlay colors:
-   - Red: Weapons
-   - Yellow: Vehicles
-   - Blue: Persons
-   - Green: Documents
-   - Orange: Drugs/Substances
-   - Purple: Biometrics (blood, fingerprints)
-   - Gray: Other items
+4. Categorizes objects into 10 predefined categories using keyword-based matching
+
+## Object Categorization System
+10 predefined evidence categories with visual colors and icons:
+| ID | Category        | Color Code | Icon          | Priority |
+|----|-----------------|------------|---------------|----------|
+| 1  | Weapons         | #D32F2F    | shield-alert  | 1        |
+| 2  | Vehicles        | #F57C00    | car           | 2        |
+| 3  | Persons         | #1976D2    | account       | 3        |
+| 4  | Biometrics      | #7B1FA2    | fingerprint   | 4        |
+| 5  | Drugs/Substances| #C62828    | alert         | 5        |
+| 6  | Documents       | #388E3C    | file-document | 6        |
+| 7  | Electronics     | #00796B    | devices       | 7        |
+| 8  | Evidence Markers| #FBC02D    | flag          | 8        |
+| 9  | Tools           | #5D4037    | tools         | 9        |
+| 10 | Other           | #616161    | dots-horizontal | 10     |
+
+### Category Screens
+- **CategoryDashboardScreen** - Grid view of all 10 categories with object counts and confidence stats
+- **CategoryDetailsScreen** - Filtered list of objects in a category with sorting (newest/oldest/confidence) and filtering (all/high/medium/low confidence)
 
 ## Evidence Types
 - **photo** - Images with GPS, AI analysis, object detection overlays, pinch-to-zoom viewing
@@ -177,3 +192,10 @@ eas build --platform all --profile production
   - Photo thumbnail strip with timecodes
   - Chronological event list with all investigation activities
   - PDF reports include timeline visualization section
+- **Object Categorization & Category-Based Display System**:
+  - 10 predefined evidence categories with colors, icons, and priorities
+  - Backend keyword-based categorization matching for accurate object classification
+  - CategoryDashboardScreen showing category cards with stats (object counts, confidence levels)
+  - CategoryDetailsScreen with filtering (by confidence) and sorting (newest/oldest/confidence)
+  - Objects are stored separately via lib/categories.ts with AsyncStorage
+  - Categories button in CaseDetailScreen for quick access to category dashboard
