@@ -199,3 +199,12 @@ eas build --platform all --profile production
   - CategoryDetailsScreen with filtering (by confidence) and sorting (newest/oldest/confidence)
   - Objects are stored separately via lib/categories.ts with AsyncStorage
   - Categories button in CaseDetailScreen for quick access to category dashboard
+- **Server-Side Bounding Box Annotation**:
+  - OpenAI returns normalized bounding box coordinates (0.0-1.0) in JSON format
+  - Canvas-based server-side image annotation with color-coded bounding boxes
+  - Category colors applied to boxes (Weapons=Red, Vehicles=Orange, etc.)
+  - Annotated images include labels, confidence levels, and numbered circles
+  - Annotated images saved locally to FileSystem.documentDirectory
+  - Evidence type extended with annotatedImageUri field
+  - EvidenceViewerScreen toggle between "Original" and "Annotated" views
+  - Re-analyze feature now saves annotated images

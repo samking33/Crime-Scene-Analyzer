@@ -70,6 +70,7 @@ export default function EvidenceViewerScreen() {
   const [showOverlay, setShowOverlay] = useState(true);
   const [showDetails, setShowDetails] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showAnnotated, setShowAnnotated] = useState(true);
 
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -103,14 +104,30 @@ export default function EvidenceViewerScreen() {
       
       const result = await analyzeImage(base64);
       if (result) {
+        let annotatedImageUri: string | undefined;
+        
+        if (result.annotatedImage) {
+          const docDir = FileSystem.documentDirectory || "";
+          const annotatedPath = `${docDir}${evidence.caseId}/annotated_${evidence.id}.jpg`;
+          await FileSystem.makeDirectoryAsync(`${docDir}${evidence.caseId}`, { intermediates: true }).catch(() => {});
+          await FileSystem.writeAsStringAsync(annotatedPath, result.annotatedImage, {
+            encoding: "base64",
+          });
+          annotatedImageUri = annotatedPath;
+        }
+        
         const updatedEvidence = await updateEvidence(evidence.id, {
           detectedObjects: result.detectedObjects,
           aiSummary: result.aiSummary,
           aiAnalysis: result.analysis,
           analysisStatus: "completed",
+          annotatedImageUri,
         });
         if (updatedEvidence) {
           setEvidence(updatedEvidence);
+          if (annotatedImageUri) {
+            setShowAnnotated(true);
+          }
         }
         
         if (result.detectedObjects && result.detectedObjects.length > 0) {
@@ -256,16 +273,18 @@ export default function EvidenceViewerScreen() {
     }
 
     if (evidence.type === "photo" && evidence.uri) {
+      const displayUri = showAnnotated && evidence.annotatedImageUri ? evidence.annotatedImageUri : evidence.uri;
+      
       return (
         <GestureHandlerRootView style={styles.gestureContainer}>
           <GestureDetector gesture={composedGesture}>
             <Animated.View style={[styles.imageContainer, animatedStyle]}>
               <Image
-                source={{ uri: evidence.uri }}
+                source={{ uri: displayUri }}
                 style={styles.media}
                 contentFit="contain"
               />
-              {showOverlay && evidence.detectedObjects && evidence.detectedObjects.length > 0 ? (
+              {!showAnnotated && showOverlay && evidence.detectedObjects && evidence.detectedObjects.length > 0 ? (
                 <View style={styles.overlayContainer}>
                   {evidence.detectedObjects.map((obj, index) => renderObjectOverlay(obj, index))}
                 </View>
@@ -315,7 +334,21 @@ export default function EvidenceViewerScreen() {
             <ThemedText style={styles.analysisTitle}>AI Analysis</ThemedText>
           </View>
           <View style={styles.analysisActions}>
-            {evidence.type === "photo" && evidence.detectedObjects && evidence.detectedObjects.length > 0 ? (
+            {evidence.type === "photo" && evidence.annotatedImageUri ? (
+              <Pressable
+                onPress={() => {
+                  triggerHaptic();
+                  setShowAnnotated(!showAnnotated);
+                }}
+                style={[styles.overlayToggle, showAnnotated && styles.overlayToggleActive]}
+              >
+                <Feather name={showAnnotated ? "layers" : "image"} size={14} color={Colors.dark.text} />
+                <ThemedText style={styles.overlayToggleText}>
+                  {showAnnotated ? "Annotated" : "Original"}
+                </ThemedText>
+              </Pressable>
+            ) : null}
+            {evidence.type === "photo" && !showAnnotated && evidence.detectedObjects && evidence.detectedObjects.length > 0 ? (
               <Pressable
                 onPress={() => setShowOverlay(!showOverlay)}
                 style={[styles.overlayToggle, showOverlay && styles.overlayToggleActive]}

@@ -324,11 +324,24 @@ export default function InvestigationScreen() {
         try {
           const result = await analyzeImage(photo.base64);
           if (result) {
+            let annotatedImageUri: string | undefined;
+            
+            if (result.annotatedImage) {
+              const docDir = FileSystem.documentDirectory || "";
+              const annotatedPath = `${docDir}${activeCase.id}/annotated_${newEvidence.id}.jpg`;
+              await FileSystem.makeDirectoryAsync(`${docDir}${activeCase.id}`, { intermediates: true }).catch(() => {});
+              await FileSystem.writeAsStringAsync(annotatedPath, result.annotatedImage, {
+                encoding: "base64",
+              });
+              annotatedImageUri = annotatedPath;
+            }
+            
             await updateEvidence(newEvidence.id, { 
               detectedObjects: result.detectedObjects,
               aiSummary: result.aiSummary,
               aiAnalysis: result.analysis,
               analysisStatus: "completed",
+              annotatedImageUri,
             });
             const updatedEvidence = await getEvidence(activeCase.id);
             setRecentEvidence(updatedEvidence.slice(0, 5));

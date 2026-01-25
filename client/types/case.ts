@@ -26,6 +26,7 @@ export interface Evidence {
   caseId: string;
   type: EvidenceType;
   uri?: string;
+  annotatedImageUri?: string;
   content?: string;
   timestamp: string;
   relativeTimestamp?: number;
@@ -54,6 +55,13 @@ export type ObjectCategory = "weapon" | "vehicle" | "person" | "document" | "dru
 export type ConfidenceLevel = "high" | "medium" | "low";
 export type ObjectLocation = "top-left" | "top-center" | "top-right" | "center-left" | "center" | "center-right" | "bottom-left" | "bottom-center" | "bottom-right";
 
+export interface BoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface DetectedObject {
   id: string;
   label: string;
@@ -61,6 +69,7 @@ export interface DetectedObject {
   category: ObjectCategory;
   categoryId?: number;
   location: ObjectLocation;
+  boundingBox?: BoundingBox;
   description?: string;
 }
 

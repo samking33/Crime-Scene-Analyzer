@@ -6,6 +6,7 @@ export interface AnalysisResult {
   aiSummary: string;
   analysis: string;
   objectCount: number;
+  annotatedImage?: string;
   confidenceDistribution: {
     high: number;
     medium: number;
@@ -35,6 +36,7 @@ export async function analyzeImage(base64Image: string): Promise<AnalysisResult 
       aiSummary: data.aiSummary || "",
       analysis: data.analysis || "",
       objectCount: data.objectCount || 0,
+      annotatedImage: data.annotatedImage || undefined,
       confidenceDistribution: data.confidenceDistribution || { high: 0, medium: 0, low: 0 },
     };
   } catch (error) {

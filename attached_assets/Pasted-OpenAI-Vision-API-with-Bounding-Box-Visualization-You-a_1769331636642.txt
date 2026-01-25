@@ -1,0 +1,715 @@
+OpenAI Vision API with Bounding Box Visualization
+You are enhancing the OpenAI Vision API integration to draw bounding boxes directly on images and display both annotated and original versions in the evidence gallery.
+Requirements:
+1. Backend API Enhancement (Express.js on port 5000):
+Modify the /api/analyze-evidence endpoint to include bounding box drawing:
+javascript// POST /api/analyze-evidence
+app.post('/api/analyze-evidence', async (req, res) => {
+  try {
+    const { image, caseId, evidenceId } = req.body;
+    
+    // Step 1: Call OpenAI GPT-4o Vision API with enhanced prompt
+    const openAIResponse = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Analyze this crime scene evidence photo. Detect and list ALL visible objects relevant to law enforcement investigation including: weapons, vehicles, persons, license plates, drugs/substances, blood stains, fingerprints, documents, electronic devices, evidence markers, and any other notable items.
+
+For each detected object, provide in JSON format:
+{
+  "objects": [
+    {
+      "name": "object name",
+      "confidence": "high/medium/low",
+      "category": "weapons/vehicles/persons/biometrics/drugs/documents/electronics/evidenceMarkers/tools/other",
+      "boundingBox": {
+        "x": 0.0-1.0,
+        "y": 0.0-1.0, 
+        "width": 0.0-1.0,
+        "height": 0.0-1.0
+      }
+    }
+  ],
+  "summary": "2-3 sentence professional summary"
+}
+
+Note: Bounding box coordinates should be normalized (0.0 to 1.0) relative to image dimensions.`
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/jpeg;base64,${image}`
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 1000
+    });
+    
+    // Step 2: Parse response
+    const detectionData = JSON.parse(openAIResponse.choices[0].message.content);
+    
+    // Step 3: Draw bounding boxes on image
+    const annotatedImageBase64 = await drawBoundingBoxes(image, detectionData.objects);
+    
+    // Step 4: Return both original and annotated images
+    res.json({
+      originalImage: image,
+      annotatedImage: annotatedImageBase64,
+      objects: detectionData.objects,
+      summary: detectionData.summary
+    });
+    
+  } catch (error) {
+    console.error('Vision API Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+2. Image Annotation Service (Backend):
+Create a service to draw bounding boxes using Canvas:
+javascript// services/imageAnnotationService.js
+const { createCanvas, loadImage } = require('canvas');
+
+// Category color mapping
+const CATEGORY_COLORS = {
+  weapons: '#D32F2F',      // Red
+  vehicles: '#F57C00',     // Orange
+  persons: '#1976D2',      // Blue
+  biometrics: '#7B1FA2',   // Purple
+  drugs: '#C62828',        // Dark Red
+  documents: '#388E3C',    // Green
+  electronics: '#00796B',  // Teal
+  evidenceMarkers: '#FBC02D', // Yellow
+  tools: '#5D4037',        // Brown
+  other: '#616161'         // Gray
+};
+
+async function drawBoundingBoxes(base64Image, detectedObjects) {
+  try {
+    // Convert base64 to buffer
+    const imageBuffer = Buffer.from(base64Image, 'base64');
+    
+    // Load image
+    const img = await loadImage(imageBuffer);
+    
+    // Create canvas with same dimensions
+    const canvas = createCanvas(img.width, img.height);
+    const ctx = canvas.getContext('2d');
+    
+    // Draw original image
+    ctx.drawImage(img, 0, 0);
+    
+    // Draw bounding boxes for each detected object
+    detectedObjects.forEach((obj, index) => {
+      const { boundingBox, category, name, confidence } = obj;
+      
+      // Convert normalized coordinates to pixel coordinates
+      const x = boundingBox.x * img.width;
+      const y = boundingBox.y * img.height;
+      const width = boundingBox.width * img.width;
+      const height = boundingBox.height * img.height;
+      
+      // Get color for category
+      const color = CATEGORY_COLORS[category] || CATEGORY_COLORS.other;
+      
+      // Draw semi-transparent rectangle
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 4;
+      ctx.strokeRect(x, y, width, height);
+      
+      // Draw filled background for label
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.8;
+      const labelText = `${name} - ${confidence}`;
+      const textMetrics = ctx.measureText(labelText);
+      const labelHeight = 24;
+      const labelWidth = textMetrics.width + 16;
+      
+      ctx.fillRect(x, y - labelHeight, labelWidth, labelHeight);
+      
+      // Draw label text
+      ctx.globalAlpha = 1.0;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 14px Arial';
+      ctx.fillText(labelText, x + 8, y - 8);
+      
+      // Draw object number badge
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x - 12, y - 12, 16, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 12px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText((index + 1).toString(), x - 12, y - 7);
+      ctx.textAlign = 'left';
+    });
+    
+    // Convert canvas to base64
+    const annotatedBase64 = canvas.toBuffer('image/jpeg', { quality: 0.95 }).toString('base64');
+    
+    return annotatedBase64;
+    
+  } catch (error) {
+    console.error('Error drawing bounding boxes:', error);
+    throw error;
+  }
+}
+
+module.exports = { drawBoundingBoxes };
+3. Install Required Dependencies:
+bashnpm install canvas
+4. Frontend Data Model Update:
+Update AsyncStorage schema to store both image versions:
+javascript// Evidence object structure in AsyncStorage
+{
+  id: string,
+  caseId: string,
+  evidenceType: 'photo' | 'video',
+  originalImageUri: string,        // Local file path to original image
+  annotatedImageUri: string,       // Local file path to annotated image
+  capturedAt: number,
+  relativeTimestamp: number,
+  aiSummary: string,
+  detectionStatus: 'pending' | 'completed' | 'failed',
+  detectedObjects: [
+    {
+      id: string,
+      name: string,
+      confidence: string,
+      category: string,
+      boundingBox: { x, y, width, height }
+    }
+  ]
+}
+5. Frontend API Call Update:
+Modify the TanStack Query mutation to save both images:
+javascript// hooks/useEvidenceAnalysis.js
+import { useMutation } from '@tanstack/react-query';
+import * as FileSystem from 'expo-file-system';
+
+export const useAnalyzeEvidence = () => {
+  return useMutation({
+    mutationFn: async ({ imageUri, caseId, evidenceId }) => {
+      // Read image as base64
+      const base64 = await FileSystem.readAsStringAsync(imageUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      
+      // Send to backend
+      const response = await fetch('http://localhost:5000/api/analyze-evidence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          image: base64, 
+          caseId, 
+          evidenceId 
+        }),
+      });
+      
+      const data = await response.json();
+      
+      // Save annotated image to local filesystem
+      const annotatedImagePath = `${FileSystem.documentDirectory}${caseId}/annotated_${evidenceId}.jpg`;
+      await FileSystem.writeAsStringAsync(annotatedImagePath, data.annotatedImage, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      
+      return {
+        ...data,
+        annotatedImageUri: annotatedImagePath,
+        originalImageUri: imageUri,
+      };
+    },
+    onSuccess: async (data, { caseId, evidenceId }) => {
+      // Update evidence in AsyncStorage with both image URIs
+      const existingData = await AsyncStorage.getItem(`evidence_${caseId}`);
+      const evidenceList = existingData ? JSON.parse(existingData) : [];
+      
+      const updatedEvidence = evidenceList.map(evidence => {
+        if (evidence.id === evidenceId) {
+          return {
+            ...evidence,
+            originalImageUri: data.originalImageUri,
+            annotatedImageUri: data.annotatedImageUri,
+            detectedObjects: data.objects,
+            aiSummary: data.summary,
+            detectionStatus: 'completed',
+          };
+        }
+        return evidence;
+      });
+      
+      await AsyncStorage.setItem(`evidence_${caseId}`, JSON.stringify(updatedEvidence));
+    },
+  });
+};
+6. Evidence Gallery Screen Update:
+Display both versions with toggle functionality:
+javascript// screens/EvidenceGalleryScreen.js
+import { View, FlatList, Image, TouchableOpacity, Text, Switch } from 'react-native';
+import { useState } from 'react';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+
+export default function EvidenceGalleryScreen({ route }) {
+  const { caseId } = route.params;
+  const [showAnnotated, setShowAnnotated] = useState(true);
+  
+  const { data: evidenceList } = useQuery({
+    queryKey: ['evidence', caseId],
+    queryFn: async () => {
+      const data = await AsyncStorage.getItem(`evidence_${caseId}`);
+      return data ? JSON.parse(data) : [];
+    },
+  });
+  
+  const renderEvidenceItem = ({ item }) => {
+    const imageUri = showAnnotated ? item.annotatedImageUri : item.originalImageUri;
+    
+    return (
+      <TouchableOpacity
+        style={styles.gridItem}
+        onPress={() => navigation.navigate('EvidenceDetail', { 
+          evidence: item,
+          showAnnotated 
+        })}
+      >
+        <Animated.View entering={FadeIn} exiting={FadeOut}>
+          <Image 
+            source={{ uri: imageUri }} 
+            style={styles.thumbnail}
+            resizeMode="cover"
+          />
+          
+          {/* Badge showing it has annotations */}
+          {item.detectedObjects?.length > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {item.detectedObjects.length} objects
+              </Text>
+            </View>
+          )}
+          
+          {/* Original/Annotated indicator */}
+          <View style={styles.typeIndicator}>
+            <Text style={styles.typeText}>
+              {showAnnotated ? 'ANNOTATED' : 'ORIGINAL'}
+            </Text>
+          </View>
+        </Animated.View>
+      </TouchableOpacity>
+    );
+  };
+  
+  return (
+    <View style={styles.container}>
+      {/* Toggle Switch Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerText}>Show Annotations</Text>
+        <Switch
+          value={showAnnotated}
+          onValueChange={setShowAnnotated}
+          trackColor={{ false: '#767577', true: '#1976D2' }}
+          thumbColor={showAnnotated ? '#FFFFFF' : '#f4f3f4'}
+        />
+      </View>
+      
+      {/* Gallery Grid */}
+      <FlatList
+        data={evidenceList}
+        renderItem={renderEvidenceItem}
+        keyExtractor={item => item.id}
+        numColumns={2}
+        contentContainerStyle={styles.grid}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#121212',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#1E1E1E',
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  headerText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  gridItem: {
+    flex: 1,
+    margin: 4,
+    aspectRatio: 1,
+  },
+  thumbnail: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
+  badge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(25, 118, 210, 0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  typeIndicator: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  typeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
+  grid: {
+    padding: 4,
+  },
+});
+7. Evidence Detail Screen with Image Comparison:
+Create a detailed view showing both versions side-by-side or with swipe toggle:
+javascript// screens/EvidenceDetailScreen.js
+import { View, Image, Dimensions, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { useState } from 'react';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+
+const { width } = Dimensions.get('window');
+
+export default function EvidenceDetailScreen({ route }) {
+  const { evidence } = route.params;
+  const [viewMode, setViewMode] = useState('annotated'); // 'annotated' | 'original' | 'split'
+  
+  const translateX = useSharedValue(0);
+  
+  const swipe = Gesture.Pan()
+    .onUpdate((e) => {
+      translateX.value = e.translationX;
+    })
+    .onEnd(() => {
+      if (translateX.value < -50 && viewMode === 'original') {
+        setViewMode('annotated');
+      } else if (translateX.value > 50 && viewMode === 'annotated') {
+        setViewMode('original');
+      }
+      translateX.value = withTiming(0);
+    });
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+  
+  return (
+    <ScrollView style={styles.container}>
+      {/* View Mode Selector */}
+      <View style={styles.modeSelector}>
+        <TouchableOpacity
+          style={[styles.modeButton, viewMode === 'original' && styles.modeButtonActive]}
+          onPress={() => setViewMode('original')}
+        >
+          <Text style={styles.modeButtonText}>Original</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.modeButton, viewMode === 'annotated' && styles.modeButtonActive]}
+          onPress={() => setViewMode('annotated')}
+        >
+          <Text style={styles.modeButtonText}>Annotated</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.modeButton, viewMode === 'split' && styles.modeButtonActive]}
+          onPress={() => setViewMode('split')}
+        >
+          <Text style={styles.modeButtonText}>Split View</Text>
+        </TouchableOpacity>
+      </View>
+      
+      {/* Image Display */}
+      {viewMode === 'split' ? (
+        <View style={styles.splitContainer}>
+          <View style={styles.splitHalf}>
+            <Text style={styles.splitLabel}>Original</Text>
+            <Image 
+              source={{ uri: evidence.originalImageUri }}
+              style={styles.splitImage}
+              resizeMode="contain"
+            />
+          </View>
+          <View style={styles.splitHalf}>
+            <Text style={styles.splitLabel}>Annotated</Text>
+            <Image 
+              source={{ uri: evidence.annotatedImageUri }}
+              style={styles.splitImage}
+              resizeMode="contain"
+            />
+          </View>
+        </View>
+      ) : (
+        <GestureDetector gesture={swipe}>
+          <Animated.View style={animatedStyle}>
+            <Image
+              source={{ 
+                uri: viewMode === 'annotated' 
+                  ? evidence.annotatedImageUri 
+                  : evidence.originalImageUri 
+              }}
+              style={styles.fullImage}
+              resizeMode="contain"
+            />
+            <Text style={styles.swipeHint}>
+              ← Swipe to toggle between views →
+            </Text>
+          </Animated.View>
+        </GestureDetector>
+      )}
+      
+      {/* AI Analysis Summary */}
+      {evidence.aiSummary && (
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>AI Analysis Summary</Text>
+          <Text style={styles.summaryText}>{evidence.aiSummary}</Text>
+        </View>
+      )}
+      
+      {/* Detected Objects List */}
+      {evidence.detectedObjects?.length > 0 && (
+        <View style={styles.objectsCard}>
+          <Text style={styles.objectsTitle}>
+            Detected Objects ({evidence.detectedObjects.length})
+          </Text>
+          {evidence.detectedObjects.map((obj, index) => (
+            <View key={obj.id} style={styles.objectItem}>
+              <View style={[styles.objectBadge, { backgroundColor: getCategoryColor(obj.category) }]}>
+                <Text style={styles.objectNumber}>{index + 1}</Text>
+              </View>
+              <View style={styles.objectInfo}>
+                <Text style={styles.objectName}>{obj.name}</Text>
+                <Text style={styles.objectDetails}>
+                  {obj.category} • {obj.confidence} confidence
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#121212',
+  },
+  modeSelector: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 8,
+  },
+  modeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    backgroundColor: '#1E1E1E',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modeButtonActive: {
+    backgroundColor: '#1976D2',
+  },
+  modeButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  fullImage: {
+    width: width,
+    height: width,
+  },
+  swipeHint: {
+    textAlign: 'center',
+    color: '#999',
+    fontSize: 12,
+    marginTop: 8,
+  },
+  splitContainer: {
+    flexDirection: 'row',
+    padding: 8,
+  },
+  splitHalf: {
+    flex: 1,
+    padding: 4,
+  },
+  splitLabel: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  splitImage: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 8,
+  },
+  summaryCard: {
+    margin: 16,
+    padding: 16,
+    backgroundColor: '#1E1E1E',
+    borderRadius: 12,
+  },
+  summaryTitle: {
+    color: '#1976D2',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  summaryText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  objectsCard: {
+    margin: 16,
+    marginTop: 0,
+    padding: 16,
+    backgroundColor: '#1E1E1E',
+    borderRadius: 12,
+  },
+  objectsTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  objectItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  objectBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  objectNumber: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  objectInfo: {
+    flex: 1,
+  },
+  objectName: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  objectDetails: {
+    color: '#999',
+    fontSize: 12,
+    marginTop: 2,
+  },
+});
+
+function getCategoryColor(category) {
+  const colors = {
+    weapons: '#D32F2F',
+    vehicles: '#F57C00',
+    persons: '#1976D2',
+    biometrics: '#7B1FA2',
+    drugs: '#C62828',
+    documents: '#388E3C',
+    electronics: '#00796B',
+    evidenceMarkers: '#FBC02D',
+    tools: '#5D4037',
+    other: '#616161'
+  };
+  return colors[category] || colors.other;
+}
+8. PDF Report Integration:
+Update the PDF generation to include both image versions:
+javascript// utils/generatePDFReport.js
+import * as Print from 'expo-print';
+
+const evidenceHTML = evidence.map(item => `
+  <div class="evidence-item">
+    <h3>Evidence ${item.id}</h3>
+    
+    <div class="image-comparison">
+      <div class="image-container">
+        <h4>Original</h4>
+        <img src="${item.originalImageUri}" style="width: 45%; border: 1px solid #ddd;" />
+      </div>
+      <div class="image-container">
+        <h4>AI Analysis (Annotated)</h4>
+        <img src="${item.annotatedImageUri}" style="width: 45%; border: 1px solid #ddd;" />
+      </div>
+    </div>
+    
+    <p><strong>AI Summary:</strong> ${item.aiSummary}</p>
+    <p><strong>Detected Objects:</strong> ${item.detectedObjects.map(o => o.name).join(', ')}</p>
+  </div>
+`).join('');
+9. Error Handling Enhancement:
+javascript// Add fallback if annotation fails
+try {
+  const annotatedImageBase64 = await drawBoundingBoxes(image, detectionData.objects);
+  return { annotatedImage: annotatedImageBase64, ... };
+} catch (error) {
+  console.error('Failed to draw bounding boxes:', error);
+  // Return original image as fallback
+  return { annotatedImage: image, ... };
+}
+Implementation Checklist:
+✅ Backend:
+
+ Install canvas npm package
+ Create imageAnnotationService.js with bounding box drawing logic
+ Update /api/analyze-evidence endpoint to return both images
+ Add error handling for annotation failures
+
+✅ Frontend:
+
+ Update AsyncStorage schema for dual images
+ Modify useAnalyzeEvidence mutation to save annotated image
+ Update EvidenceGalleryScreen with toggle switch
+ Create/update EvidenceDetailScreen with comparison modes
+ Add swipe gesture for image toggling
+ Update PDF generation to include both versions
+
+Testing:
+
+Capture photo → Verify API returns both original and annotated base64
+Check annotated image has colored bounding boxes with labels
+Verify gallery shows toggle between versions
+Test detail screen split view and swipe gestures
+Generate PDF → Confirm both images included

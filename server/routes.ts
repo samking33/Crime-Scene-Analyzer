@@ -1,11 +1,19 @@
 import type { Express } from "express";
 import { createServer, type Server } from "node:http";
 import OpenAI from "openai";
+import { drawBoundingBoxes } from "./imageAnnotationService";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
+
+interface BoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 interface DetectedObject {
   id: string;
@@ -14,6 +22,7 @@ interface DetectedObject {
   category: "weapon" | "vehicle" | "person" | "document" | "drug" | "biometric" | "electronics" | "markers" | "tools" | "other";
   categoryId: number;
   location: "top-left" | "top-center" | "top-right" | "center-left" | "center" | "center-right" | "bottom-left" | "bottom-center" | "bottom-right";
+  boundingBox?: BoundingBox;
   description?: string;
 }
 
@@ -114,72 +123,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
         model: "gpt-4o",
         messages: [
           {
-            role: "system",
-            content: `You are an expert crime scene analyst. Analyze this crime scene evidence photo and detect ALL visible objects relevant to law enforcement investigation.
-
-For EACH detected object, provide one line in this exact format:
-- Object Name: confidence level (high/medium/low), location in image (top-left, top-center, top-right, center-left, center, center-right, bottom-left, bottom-center, bottom-right)
-
-Focus on detecting:
-- Weapons (firearms, knives, blunt objects)
-- Vehicles and license plates
-- Persons or bodies
-- Drugs/substances
-- Blood stains or fingerprints
-- Documents and electronic devices
-- Evidence markers
-- Any other notable items
-
-Be thorough and objective. List every relevant visible item.`
-          },
-          {
             role: "user",
             content: [
+              {
+                type: "text",
+                text: `Analyze this crime scene evidence photo. Detect and list ALL visible objects relevant to law enforcement investigation including: weapons, vehicles, persons, license plates, drugs/substances, blood stains, fingerprints, documents, electronic devices, evidence markers, and any other notable items.
+
+For each detected object, provide in JSON format:
+{
+  "objects": [
+    {
+      "name": "object name",
+      "confidence": "high/medium/low",
+      "category": "weapon/vehicle/person/biometric/drug/document/electronics/markers/tools/other",
+      "boundingBox": {
+        "x": 0.0-1.0,
+        "y": 0.0-1.0, 
+        "width": 0.0-1.0,
+        "height": 0.0-1.0
+      }
+    }
+  ],
+  "summary": "2-3 sentence professional summary"
+}
+
+IMPORTANT: Bounding box coordinates must be normalized (0.0 to 1.0) relative to image dimensions.
+- x: left edge position (0.0 = left, 1.0 = right)
+- y: top edge position (0.0 = top, 1.0 = bottom)
+- width: box width as fraction of image width
+- height: box height as fraction of image height
+
+Be thorough and objective. Detect every relevant visible item.`
+              },
               {
                 type: "image_url",
                 image_url: {
                   url: `data:image/jpeg;base64,${image}`,
                   detail: "high"
                 }
-              },
-              {
-                type: "text",
-                text: "Analyze this crime scene evidence photo. Detect and list ALL visible objects relevant to law enforcement investigation."
               }
             ]
           }
         ],
-        max_tokens: 1000,
+        max_tokens: 2000,
+        response_format: { type: "json_object" },
       });
 
-      const detectionContent = detectionResponse.choices[0]?.message?.content || "";
-      const detectedObjects = parseDetectedObjects(detectionContent);
+      const responseContent = detectionResponse.choices[0]?.message?.content || "{}";
+      let parsedResponse: { objects?: any[]; summary?: string } = {};
       
-      const objectList = detectedObjects.map(obj => obj.label).join(", ");
+      try {
+        parsedResponse = JSON.parse(responseContent);
+      } catch (e) {
+        console.error("Failed to parse JSON response:", e);
+        parsedResponse = { objects: [], summary: "" };
+      }
+
+      const rawObjects = parsedResponse.objects || [];
+      const aiSummary = parsedResponse.summary || "";
+
+      const detectedObjects: DetectedObject[] = rawObjects.map((obj: any) => {
+        const { categoryId, category } = categorizeObjectByKeyword(obj.name);
+        
+        let location: DetectedObject["location"] = "center";
+        if (obj.boundingBox) {
+          const centerX = obj.boundingBox.x + obj.boundingBox.width / 2;
+          const centerY = obj.boundingBox.y + obj.boundingBox.height / 2;
+          
+          if (centerY < 0.33) {
+            if (centerX < 0.33) location = "top-left";
+            else if (centerX > 0.66) location = "top-right";
+            else location = "top-center";
+          } else if (centerY > 0.66) {
+            if (centerX < 0.33) location = "bottom-left";
+            else if (centerX > 0.66) location = "bottom-right";
+            else location = "bottom-center";
+          } else {
+            if (centerX < 0.33) location = "center-left";
+            else if (centerX > 0.66) location = "center-right";
+            else location = "center";
+          }
+        }
+
+        return {
+          id: generateObjectId(),
+          label: obj.name,
+          confidence: obj.confidence || "medium",
+          category,
+          categoryId,
+          location,
+          boundingBox: obj.boundingBox,
+          description: `${obj.confidence} confidence detection`,
+        };
+      });
+
+      let annotatedImage: string | null = null;
+      const objectsWithBoxes = detectedObjects.filter(obj => obj.boundingBox);
       
-      let aiSummary = "";
-      if (detectedObjects.length > 0) {
-        const summaryResponse = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: "You are a professional crime scene analyst. Provide brief, objective summaries of evidence photos."
-            },
-            {
-              role: "user",
-              content: `Based on these detected objects: [${objectList}], provide a brief 2-3 sentence professional summary of what this evidence photo shows from a law enforcement perspective. Be factual and objective.`
-            }
-          ],
-          max_tokens: 200,
-        });
-        aiSummary = summaryResponse.choices[0]?.message?.content || "";
+      if (objectsWithBoxes.length > 0) {
+        try {
+          annotatedImage = await drawBoundingBoxes(
+            image,
+            objectsWithBoxes.map(obj => ({
+              name: obj.label,
+              confidence: obj.confidence,
+              category: obj.category,
+              boundingBox: obj.boundingBox!,
+            }))
+          );
+        } catch (error) {
+          console.error("Failed to draw bounding boxes:", error);
+        }
       }
 
       res.json({ 
         detectedObjects,
         aiSummary,
-        analysis: aiSummary || detectionContent,
+        annotatedImage,
+        analysis: aiSummary,
         objectCount: detectedObjects.length,
         confidenceDistribution: {
           high: detectedObjects.filter(o => o.confidence === "high").length,
