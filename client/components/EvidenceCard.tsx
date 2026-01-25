@@ -12,8 +12,8 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, BorderRadius, Spacing, AnimationConfig, ForensicColors } from "@/constants/theme";
-import { EvidenceTypeBadge, AnalysisBadge } from "@/components/StatusBadge";
+import { Colors, BorderRadius, Spacing, Shadows, AnimationConfig, EvidenceColors } from "@/constants/theme";
+import { AnalysisBadge } from "@/components/StatusBadge";
 import { format } from "date-fns";
 import type { Evidence } from "@/types/case";
 
@@ -34,7 +34,7 @@ export function EvidenceCard({ evidence, compact = false, onPress, index = 0 }: 
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.98, AnimationConfig.springFast);
+    scale.value = withSpring(0.97, AnimationConfig.springFast);
   };
 
   const handlePressOut = () => {
@@ -64,13 +64,13 @@ export function EvidenceCard({ evidence, compact = false, onPress, index = 0 }: 
   const getTypeColor = () => {
     switch (evidence.type) {
       case "photo":
-        return Colors.dark.primary;
+        return Colors.dark.accent;
       case "video":
-        return ForensicColors.statusRed;
+        return EvidenceColors.weapons;
       case "audio":
         return Colors.dark.success;
       case "note":
-        return Colors.dark.accent;
+        return Colors.dark.primary;
       default:
         return Colors.dark.textSecondary;
     }
@@ -109,7 +109,7 @@ export function EvidenceCard({ evidence, compact = false, onPress, index = 0 }: 
             ) : null}
             {evidence.aiAnalysis ? (
               <View style={styles.compactAiBadge}>
-                <Feather name="cpu" size={10} color={Colors.dark.primary} />
+                <Feather name="cpu" size={10} color={Colors.dark.accent} />
               </View>
             ) : null}
           </View>
@@ -119,7 +119,12 @@ export function EvidenceCard({ evidence, compact = false, onPress, index = 0 }: 
           </View>
         )}
         <View style={styles.compactInfo}>
-          <EvidenceTypeBadge type={evidence.type} size="sm" />
+          <View style={[styles.compactTypeBadge, { backgroundColor: getTypeColor() + "20" }]}>
+            <Feather name={getIcon()} size={10} color={getTypeColor()} />
+            <ThemedText style={[styles.compactTypeText, { color: getTypeColor() }]}>
+              {evidence.type.charAt(0).toUpperCase() + evidence.type.slice(1)}
+            </ThemedText>
+          </View>
           <ThemedText style={styles.compactTime}>
             {format(new Date(evidence.timestamp), "HH:mm")}
           </ThemedText>
@@ -130,17 +135,19 @@ export function EvidenceCard({ evidence, compact = false, onPress, index = 0 }: 
 
   return (
     <AnimatedPressable
-      entering={FadeIn.duration(300).delay(index * 80)}
+      entering={FadeIn.duration(400).delay(index * 100)}
       onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={[styles.card, animatedStyle]}
+      style={[styles.card, Shadows.md, animatedStyle]}
       testID={`evidence-${evidence.id}`}
     >
+      <View style={[styles.accentBar, { backgroundColor: getTypeColor() }]} />
+      
       <View style={styles.cardContent}>
         <View style={styles.header}>
           <View style={[styles.iconContainer, { backgroundColor: getTypeColor() + "15" }]}>
-            <Feather name={getIcon()} size={20} color={getTypeColor()} />
+            <Feather name={getIcon()} size={22} color={getTypeColor()} />
           </View>
           
           <View style={styles.headerText}>
@@ -158,7 +165,7 @@ export function EvidenceCard({ evidence, compact = false, onPress, index = 0 }: 
             </View>
           </View>
           
-          {evidence.analysisStatus === "completed" ? (
+          {evidence.aiAnalysis ? (
             <AnalysisBadge status="completed" size="sm" />
           ) : null}
         </View>
@@ -171,7 +178,7 @@ export function EvidenceCard({ evidence, compact = false, onPress, index = 0 }: 
               contentFit="cover"
             />
             <LinearGradient
-              colors={["transparent", "rgba(0,0,0,0.5)"]}
+              colors={["transparent", "rgba(0,0,0,0.6)"]}
               style={styles.imageOverlay}
             />
             {evidence.type === "video" ? (
@@ -182,7 +189,7 @@ export function EvidenceCard({ evidence, compact = false, onPress, index = 0 }: 
                 {evidence.duration ? (
                   <View style={styles.durationBadge}>
                     <ThemedText style={styles.durationText}>
-                      {Math.floor(evidence.duration / 60)}:{(Math.floor(evidence.duration) % 60).toString().padStart(2, "0")}
+                      {Math.floor(evidence.duration / 60)}:{(evidence.duration % 60).toString().padStart(2, "0")}
                     </ThemedText>
                   </View>
                 ) : null}
@@ -209,7 +216,7 @@ export function EvidenceCard({ evidence, compact = false, onPress, index = 0 }: 
 
         {evidence.aiSummary ? (
           <View style={styles.aiSummaryContainer}>
-            <Feather name="cpu" size={14} color={Colors.dark.primary} />
+            <Feather name="cpu" size={14} color={Colors.dark.accent} />
             <ThemedText style={styles.aiSummaryText} numberOfLines={2}>
               {evidence.aiSummary}
             </ThemedText>
@@ -224,12 +231,20 @@ export function EvidenceCard({ evidence, compact = false, onPress, index = 0 }: 
                 <ThemedText style={styles.locationText}>GPS</ThemedText>
               </View>
             ) : null}
-            <EvidenceTypeBadge type={evidence.type} size="sm" />
+            <View style={[styles.typeBadge, { backgroundColor: getTypeColor() + "15" }]}>
+              <ThemedText style={[styles.typeLabel, { color: getTypeColor() }]}>
+                {evidence.type.toUpperCase()}
+              </ThemedText>
+            </View>
           </View>
           
-          <View style={styles.arrow}>
-            <Feather name="chevron-right" size={18} color={Colors.dark.textTertiary} />
-          </View>
+          <Pressable
+            style={styles.viewButton}
+            onPress={handlePress}
+          >
+            <ThemedText style={styles.viewButtonText}>View Details</ThemedText>
+            <Feather name="chevron-right" size={14} color={Colors.dark.primary} />
+          </Pressable>
         </View>
       </View>
     </AnimatedPressable>
@@ -243,7 +258,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
     borderColor: Colors.dark.border,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  accentBar: {
+    height: 3,
+    width: "100%",
   },
   cardContent: {
     padding: Spacing.lg,
@@ -255,9 +274,9 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: BorderRadius.md,
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.lg,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -265,10 +284,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   evidenceId: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
     color: Colors.dark.text,
-    marginBottom: 2,
+    marginBottom: Spacing.xs,
   },
   metaRow: {
     flexDirection: "row",
@@ -340,7 +359,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: Spacing.md,
     right: Spacing.md,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
@@ -358,7 +377,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: "rgba(47, 164, 185, 0.9)",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.lg,
@@ -369,11 +388,11 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   noteContainer: {
-    backgroundColor: ForensicColors.muted,
+    backgroundColor: Colors.dark.backgroundTertiary,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderLeftWidth: 3,
-    borderLeftColor: Colors.dark.accent,
+    borderLeftColor: Colors.dark.primary,
   },
   noteContent: {
     fontSize: 14,
@@ -384,16 +403,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: Spacing.sm,
-    backgroundColor: "rgba(47, 164, 185, 0.1)",
+    backgroundColor: "rgba(0, 176, 255, 0.08)",
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(47, 164, 185, 0.2)",
+    borderColor: "rgba(0, 176, 255, 0.2)",
   },
   aiSummaryText: {
     flex: 1,
     fontSize: 13,
-    color: Colors.dark.primary,
+    color: Colors.dark.accent,
     lineHeight: 18,
   },
   footer: {
@@ -413,7 +432,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: "rgba(16, 185, 129, 0.15)",
+    backgroundColor: "rgba(67, 160, 71, 0.15)",
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
@@ -423,8 +442,29 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.success,
   },
-  arrow: {
-    opacity: 0.7,
+  typeBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+  },
+  typeLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  viewButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: "rgba(41, 98, 255, 0.1)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  viewButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.primary,
   },
   compactCard: {
     width: 110,
@@ -466,6 +506,20 @@ const styles = StyleSheet.create({
   compactInfo: {
     padding: Spacing.sm,
     gap: Spacing.xs,
+  },
+  compactTypeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    alignSelf: "flex-start",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  compactTypeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    textTransform: "uppercase",
   },
   compactTime: {
     fontSize: 10,

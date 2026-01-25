@@ -1,6 +1,8 @@
 import React from "react";
 import { View, StyleSheet, Pressable, Platform } from "react-native";
+import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -8,11 +10,11 @@ import Animated, {
   FadeIn,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { format } from "date-fns";
 
 import { ThemedText } from "@/components/ThemedText";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Colors, BorderRadius, Spacing, AnimationConfig } from "@/constants/theme";
+import { Colors, BorderRadius, Spacing, Shadows, AnimationConfig } from "@/constants/theme";
+import { formatDistanceToNow } from "date-fns";
 import type { Case } from "@/types/case";
 
 interface CaseCardProps {
@@ -31,7 +33,7 @@ export function CaseCard({ caseData, onPress, index = 0 }: CaseCardProps) {
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.98, AnimationConfig.springFast);
+    scale.value = withSpring(0.97, AnimationConfig.springFast);
   };
 
   const handlePressOut = () => {
@@ -43,55 +45,88 @@ export function CaseCard({ caseData, onPress, index = 0 }: CaseCardProps) {
     onPress();
   };
 
+  const getStatusColor = () => {
+    switch (caseData.status) {
+      case "active":
+        return Colors.dark.success;
+      case "pending":
+        return Colors.dark.warning;
+      case "closed":
+        return Colors.dark.neutral;
+      default:
+        return Colors.dark.primary;
+    }
+  };
+
+  const timeAgo = formatDistanceToNow(new Date(caseData.createdAt), { addSuffix: true });
+
   return (
     <AnimatedPressable
-      entering={FadeIn.duration(300).delay(index * 80)}
+      entering={FadeIn.duration(400).delay(index * 100)}
       onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={[styles.card, animatedStyle]}
+      style={[styles.card, Shadows.lg, animatedStyle]}
       testID={`card-case-${caseData.id}`}
     >
-      <View style={styles.header}>
-        <View style={styles.iconRow}>
-          <Feather name="file-text" size={18} color={Colors.dark.primary} />
-          <ThemedText style={styles.caseId}>{caseData.caseId}</ThemedText>
+      <View style={[styles.accentBar, { backgroundColor: getStatusColor() }]} />
+      
+      <View style={styles.cardContent}>
+        <View style={styles.header}>
+          <View style={styles.iconContainer}>
+            {caseData.thumbnail ? (
+              <Image source={{ uri: caseData.thumbnail }} style={styles.thumbnailImage} contentFit="cover" />
+            ) : (
+              <Feather name="folder" size={24} color={Colors.dark.primary} />
+            )}
+          </View>
+          
+          <View style={styles.headerText}>
+            <ThemedText style={styles.caseId} testID={`text-case-id-${caseData.id}`}>
+              {caseData.caseId}
+            </ThemedText>
+            <View style={styles.timeRow}>
+              <ThemedText style={styles.timeText}>{timeAgo}</ThemedText>
+            </View>
+          </View>
+          
+          <StatusBadge status={caseData.status} size="sm" />
         </View>
-        <StatusBadge status={caseData.status} size="sm" />
-      </View>
-
-      <ThemedText style={styles.title} numberOfLines={2}>
-        {caseData.title}
-      </ThemedText>
-
-      <View style={styles.metaContainer}>
+        
+        <ThemedText style={styles.title} numberOfLines={2} testID={`text-case-title-${caseData.id}`}>
+          {caseData.title}
+        </ThemedText>
+        
         <View style={styles.metaRow}>
-          <Feather name="map-pin" size={13} color={Colors.dark.textTertiary} />
-          <ThemedText style={styles.metaText} numberOfLines={1}>
-            {caseData.location}
-          </ThemedText>
+          <View style={styles.metaItem}>
+            <Feather name="map-pin" size={12} color={Colors.dark.textTertiary} />
+            <ThemedText style={styles.metaText} numberOfLines={1}>
+              {caseData.location}
+            </ThemedText>
+          </View>
+          <View style={styles.dot} />
+          <View style={styles.metaItem}>
+            <Feather name="user" size={12} color={Colors.dark.textTertiary} />
+            <ThemedText style={styles.metaText} numberOfLines={1}>
+              {caseData.leadOfficer}
+            </ThemedText>
+          </View>
         </View>
-        <View style={styles.metaRow}>
-          <Feather name="calendar" size={13} color={Colors.dark.textTertiary} />
-          <ThemedText style={styles.metaText}>
-            {format(new Date(caseData.createdAt), "MMM d, yyyy")}
-          </ThemedText>
-        </View>
-      </View>
-
-      <View style={styles.footer}>
-        <View style={styles.statsRow}>
-          {caseData.evidenceCount !== undefined && caseData.evidenceCount > 0 ? (
+        
+        <View style={styles.footer}>
+          <View style={styles.statsRow}>
             <View style={styles.statBadge}>
-              <Feather name="image" size={12} color={Colors.dark.primary} />
+              <Feather name="image" size={12} color={Colors.dark.accent} />
               <ThemedText style={styles.statText}>
                 {caseData.evidenceCount} evidence
               </ThemedText>
             </View>
-          ) : null}
-        </View>
-        <View style={styles.arrow}>
-          <Feather name="chevron-right" size={18} color={Colors.dark.textTertiary} />
+          </View>
+          
+          <Pressable style={styles.viewButton}>
+            <ThemedText style={styles.viewButtonText}>View</ThemedText>
+            <Feather name="chevron-right" size={14} color={Colors.dark.primary} />
+          </Pressable>
         </View>
       </View>
     </AnimatedPressable>
@@ -102,45 +137,81 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: Colors.dark.border,
+  },
+  accentBar: {
+    height: 3,
+    width: "100%",
+  },
+  cardContent: {
     padding: Spacing.lg,
     gap: Spacing.md,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: Spacing.md,
   },
-  iconRow: {
-    flexDirection: "row",
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: "rgba(41, 98, 255, 0.15)",
     alignItems: "center",
-    gap: Spacing.sm,
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  thumbnailImage: {
+    width: "100%",
+    height: "100%",
+  },
+  headerText: {
+    flex: 1,
   },
   caseId: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: Colors.dark.textSecondary,
+    fontSize: 14,
     fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    color: Colors.dark.accent,
+    fontWeight: "700",
+    marginBottom: Spacing.xs,
+  },
+  timeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  timeText: {
+    fontSize: 12,
+    color: Colors.dark.textTertiary,
   },
   title: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "600",
     color: Colors.dark.text,
-    lineHeight: 22,
-  },
-  metaContainer: {
-    gap: Spacing.xs,
+    lineHeight: 24,
   },
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    flex: 1,
   },
   metaText: {
-    fontSize: 13,
+    fontSize: 12,
     color: Colors.dark.textTertiary,
     flex: 1,
+  },
+  dot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: Colors.dark.textDisabled,
+    marginHorizontal: Spacing.sm,
   },
   footer: {
     flexDirection: "row",
@@ -158,17 +229,28 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: "rgba(47, 164, 185, 0.12)",
+    backgroundColor: "rgba(0, 176, 255, 0.1)",
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
   },
   statText: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.accent,
+  },
+  viewButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: "rgba(41, 98, 255, 0.1)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  viewButtonText: {
+    fontSize: 13,
     fontWeight: "600",
     color: Colors.dark.primary,
-  },
-  arrow: {
-    opacity: 0.7,
   },
 });

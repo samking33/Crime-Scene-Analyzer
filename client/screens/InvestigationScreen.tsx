@@ -29,7 +29,7 @@ import { EvidenceButton } from "@/components/EvidenceButton";
 import { EvidenceCard } from "@/components/EvidenceCard";
 import { Button } from "@/components/Button";
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius, Shadows, ForensicColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { getActiveCase, getCase, getEvidence, addEvidence, setActiveCase, updateCase, logActivity, getProfile, updateEvidence } from "@/lib/storage";
 import { analyzeImage } from "@/lib/ai";
 import { saveCategorizedObjects, CategorizedObject } from "@/lib/categories";
@@ -795,9 +795,8 @@ const styles = StyleSheet.create({
   caseId: {
     fontSize: 12,
     fontWeight: "600",
-    color: Colors.dark.primary,
+    color: Colors.dark.accent,
     letterSpacing: 0.5,
-    fontFamily: "monospace",
   },
   caseTitle: {
     fontSize: 20,
@@ -839,11 +838,11 @@ const styles = StyleSheet.create({
     left: Spacing.md,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: ForensicColors.statusRed,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.lg,
-    gap: Spacing.sm,
+    backgroundColor: Colors.dark.error,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    gap: Spacing.xs,
   },
   recordingDot: {
     width: 8,
@@ -914,13 +913,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.sm,
-    backgroundColor: "rgba(217, 164, 65, 0.12)",
+    gap: Spacing.xs,
+    backgroundColor: "rgba(255, 167, 38, 0.1)",
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(217, 164, 65, 0.25)",
+    borderColor: "rgba(255, 167, 38, 0.3)",
   },
   pendingText: {
     fontSize: 13,

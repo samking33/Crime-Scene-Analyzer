@@ -1,10 +1,10 @@
-# Smart Crime Scene Investigation App - Forensic Tactical Design Guidelines
+# Smart Crime Scene Investigation App - Premium Design Guidelines
 
 ## Brand Identity
 
 **Purpose**: Professional evidence documentation tool for law enforcement first responders, replacing body-worn cameras while providing comprehensive crime scene investigation capabilities.
 
-**Visual Direction**: **Forensic Tactical Interface** - Professional dark theme optimized for field use with exceptional legibility, sophisticated depth, and precise hierarchy. Inspired by forensic/tactical design language.
+**Visual Direction**: **Premium Tactical Interface** - Inspired by enterprise design systems like Figma, Linear, Stripe Dashboard, and Apple Health. Dark theme optimized for field use with exceptional legibility, sophisticated depth, and precise hierarchy.
 
 **Design Pillars**:
 1. **Clarity** - Information hierarchy with subtle depth cues
@@ -14,52 +14,50 @@
 
 **Memorable Element**: The synchronized evidence timeline with AI-powered object detection overlays.
 
-## Forensic Color System
+## Color System
 
 ### Primary Palette
 | Name | Value | Usage |
 |------|-------|-------|
-| **Investigation Cyan** | #2FA4B9 | Primary CTAs, active states, links, focus rings |
-| **Evidence Amber** | #D9A441 | Warnings, evidence highlights, secondary actions |
-| **Forensic Navy** | #0F1A24 | App background (backgroundRoot) |
-| **Charcoal** | #1A2530 | Cards, elevated surfaces (backgroundSecondary) |
-| **Steel** | #243240 | Nested elements, hover states (backgroundTertiary) |
+| **Primary** | #2962FF | CTAs, active states, links, focus rings |
+| **Accent** | #00B0FF | Secondary actions, highlights, info badges |
+| **Background Root** | #0A1929 | App background |
+| **Background Secondary** | #1E2530 | Cards, elevated surfaces |
+| **Background Tertiary** | #2A3544 | Nested elements, hover states |
 
 ### Semantic Colors
 | Name | Value | Usage |
 |------|-------|-------|
-| **Success** | #10B981 | Completed, GPS lock, online, high confidence |
-| **Warning** | #D9A441 | Caution, pending states (Evidence Amber) |
-| **Status Red** | #C0392B | Recording state, errors, critical alerts |
-| **Neutral** | #6B7280 | Disabled, inactive |
+| **Success** | #43A047 | Completed, GPS lock, online |
+| **Warning** | #FFA726 | Caution, pending states |
+| **Error** | #EF5350 | Errors, delete, recording |
+| **Neutral** | #78909C | Disabled, inactive |
 
 ### Text Colors
 | Name | Value | Usage |
 |------|-------|-------|
-| **Text Primary** | #F0F4F8 | Headings, primary content |
-| **Text Secondary** | #A0AEC0 | Body text, descriptions |
-| **Text Tertiary** | #64748B | Labels, timestamps, hints |
-| **Text Disabled** | #475569 | Disabled text |
+| **Text Primary** | #FFFFFF | Headings, primary content |
+| **Text Secondary** | #B8C5D3 | Body text, descriptions |
+| **Text Tertiary** | #7B8A9A | Labels, timestamps, hints |
+| **Text Disabled** | #4A5568 | Disabled text |
 
 ### Surface & Borders
 | Name | Value | Usage |
 |------|-------|-------|
 | **Border** | rgba(255,255,255,0.08) | Card borders, dividers |
-| **Border Focused** | rgba(47,164,185,0.5) | Input focus states (cyan) |
-| **Muted** | rgba(47,164,185,0.08) | Subtle backgrounds, hover states |
+| **Border Focused** | rgba(41,98,255,0.5) | Input focus states |
 
 ### Gradient Colors
 | Name | Values | Usage |
 |------|--------|-------|
-| **Primary Gradient** | #2FA4B9 → #1A8A9C | Primary buttons, FAB |
-| **Accent Gradient** | #D9A441 → #C09030 | Evidence highlights |
-| **Success Gradient** | #10B981 → #059669 | Success states |
-| **Error Gradient** | #C0392B → #A33225 | Recording indicators |
+| **Primary Gradient** | #2962FF → #1E88E5 | Primary buttons, FAB |
+| **Accent Gradient** | #00B0FF → #0091EA | Secondary highlights |
+| **Success Gradient** | #43A047 → #2E7D32 | Success states |
+| **Error Gradient** | #EF5350 → #D32F2F | Recording indicators |
 
 ## Typography Scale
 
 **Font Stack**: System fonts with -apple-system, BlinkMacSystemFont, Inter fallback
-**Monospace**: Menlo (iOS), monospace (Android) for case IDs, timestamps, coordinates
 
 | Name | Size | Weight | Usage |
 |------|------|--------|-------|
@@ -115,7 +113,7 @@
 ### Special Shadows
 | Name | Properties | Usage |
 |------|------------|-------|
-| **Primary Glow** | color(#2FA4B9), blur(12), opacity(0.4) | Primary buttons |
+| **Primary Glow** | color(#2962FF), blur(12), opacity(0.4) | Primary buttons |
 | **Inner** | offset(0,1) inset, blur(2), opacity(0.1) | Pressed states |
 
 ## Component Specifications
@@ -124,9 +122,9 @@
 | Variant | Background | Border | Text Color |
 |---------|------------|--------|------------|
 | **Primary** | Primary gradient | None | White |
-| **Secondary** | Transparent | 1.5px primary | Primary (Cyan) |
+| **Secondary** | Transparent | 1.5px primary | Primary |
 | **Ghost** | Transparent | None | Text Secondary |
-| **Danger** | Status Red | None | White |
+| **Danger** | Error color | None | White |
 
 **Button Sizes**:
 - Default: height 52px, paddingH 24px
@@ -136,83 +134,78 @@
 ### Card Variants
 | Variant | Border | Background | Shadow |
 |---------|--------|------------|--------|
-| **Default** | 1px border | Charcoal | sm |
-| **Premium** | 1px border | Charcoal | lg |
-| **Stat** | None | Charcoal | md |
-| **Interactive** | 1px border → cyan on hover | Charcoal | md, scale animation |
+| **Default** | 1px border | backgroundSecondary | sm |
+| **Premium** | 1px border | backgroundSecondary | lg |
+| **Stat** | None | backgroundSecondary | md |
+| **Interactive** | 1px border | backgroundSecondary | md, scale animation |
+
+### Input States
+| State | Border Color | Background |
+|-------|--------------|------------|
+| **Default** | border | backgroundTertiary |
+| **Focused** | borderFocused (primary) | backgroundTertiary |
+| **Error** | error | backgroundTertiary |
+| **Disabled** | border (50% opacity) | backgroundSecondary |
 
 ### Badge Variants
-| Variant | Background | Text | Dot |
-|---------|------------|------|-----|
-| **Status Active** | success (20% opacity) | Success | Green |
-| **Status Pending** | amber (20% opacity) | Amber | Orange |
-| **Status Closed** | neutral (20% opacity) | Neutral | Gray |
-| **Status Recording** | Status Red (solid) | White | White pulsing |
-| **Confidence High** | success (20% opacity) | Success | Green |
-| **Confidence Medium** | amber (20% opacity) | Amber | Orange |
-| **Confidence Low** | error (20% opacity) | Error | Red |
-
-### Recording Indicator
-- Background: Status Red (#C0392B)
-- White pulsing dot (8px)
-- Monospace time display (HH:MM:SS)
-- Rounded corners (BorderRadius.lg)
-
-### Evidence Type Badges
-| Type | Color | Icon |
-|------|-------|------|
-| Photo | Investigation Cyan | image |
-| Video | Status Red | video |
-| Audio | Success Green | mic |
-| Note | Evidence Amber | file-text |
+| Variant | Background | Text |
+|---------|------------|------|
+| **Status Active** | success (15% opacity) | success |
+| **Status Pending** | warning (15% opacity) | warning |
+| **Status Closed** | neutral (15% opacity) | neutral |
+| **Confidence High** | success (15% opacity) | success |
+| **Confidence Medium** | warning (15% opacity) | warning |
+| **Confidence Low** | error (15% opacity) | error |
 
 ## Animation Configuration
 
 ### Spring Presets
 | Name | Damping | Stiffness | Usage |
 |------|---------|-----------|-------|
-| **Fast** | 15 | 200 | Button presses, card interactions |
+| **Fast** | 15 | 200 | Button presses |
 | **Default** | 20 | 150 | General transitions |
 | **Slow** | 25 | 100 | Large movements |
 
 ### Fade Animations
 | Type | Duration | Delay Pattern |
 |------|----------|---------------|
-| **FadeIn** | 300-400ms | - |
-| **Staggered List** | 300ms | index * 80ms |
+| **FadeIn** | 400ms | - |
+| **Staggered List** | 400ms | index * 100ms |
 
 ## Screen Layouts
 
 ### Cases Screen (Home)
-- Stats grid: 2x2 StatCards (Cyan icons, Forensic Navy background)
-- Search bar with Feather icon
-- Section header with count badge (Steel background)
-- CaseCard list with staggered FadeIn (80ms delay)
+- Stats grid: 2x2 StatCards showing Active Cases, Closed, Evidence Items, Total
+- Search bar with left icon
+- Section header with count badge
+- CaseCard list with staggered FadeIn
 
 ### Case Detail Screen
-- Animated header with monospace case ID badge
-- StatusBadge with dot indicator
-- Stats row: Evidence count, Activity count
-- Action buttons: Continue Investigation (primary cyan), Generate Report (secondary)
+- Animated header with case ID badge and status
+- Stats row: 2 stat cards (Evidence count, Activity count)
+- Action buttons: Continue Investigation (primary), Generate Report (secondary)
+- Tab bar: Timeline | Evidence | Activity
 - Filter chips for evidence types
 
 ### Investigation Screen
-- Case info header with cyan case ID (monospace)
-- Camera preview with gesture controls
-- Recording overlay: Status Red with white REC text
-- Evidence capture buttons in row layout
-- Recent evidence horizontal carousel
+- Camera preview with gesture controls (pinch zoom, double-tap)
+- Recording indicator with duration timer
+- Evidence capture buttons: Note, Photo (primary), Audio
+- Video recording toggle
+- Recently captured evidence carousel
 
 ### Evidence Viewer Screen
 - Full-screen image/video with gesture zoom
-- AI Analysis card with cyan accent
-- Object count badge (cyan background)
+- Floating header with back button and metadata
+- AI Analysis card with object detection stats
 - Original/Annotated toggle
+- Object details expandable list
 
 ### Category Dashboard Screen
-- Summary cards: Total Objects, Active Categories
+- Summary gradient cards: Total Objects, Active Categories
 - 2-column category card grid
-- Category colors per evidence type
+- Category cards: icon, name, count, confidence badge
+- Priority badges for high-priority categories
 
 ## Evidence Category Colors
 
@@ -231,14 +224,14 @@
 
 ## Tab Bar Design
 
-- Translucent blur background on iOS
-- Active tab: Investigation Cyan text, subtle background highlight
+- Blur background on iOS
+- Active tab: Primary color text, subtle background highlight
 - Inactive tab: Tertiary text color
 - Icon containers with rounded background on active state
 
 ## FAB (Floating Action Button)
 
-- Primary gradient background (Cyan)
+- Primary gradient background
 - Size: 56x56px
 - Border radius: 28px
 - Primary glow shadow
@@ -246,7 +239,7 @@
 
 ## Assets
 
-1. **icon.png** - App icon with police badge + camera lens (forensic navy/cyan)
+1. **icon.png** - App icon with police badge + camera lens (navy/primary blue)
 2. **splash-icon.png** - Same as app icon
 3. **empty-cases.png** - Empty folder illustration
 4. **empty-investigation.png** - Camera standby illustration
@@ -257,5 +250,5 @@
 
 - Minimum touch target: 44x44px
 - Color contrast ratio: 4.5:1 minimum
-- Focus indicators: 2px Investigation Cyan ring
-- Haptic feedback on all interactive elements (Light, Medium, Heavy impacts)
+- Focus indicators: 2px primary color ring
+- Haptic feedback on all interactive elements
