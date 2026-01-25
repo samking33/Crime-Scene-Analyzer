@@ -42,6 +42,7 @@ interface PendingAnalysis {
   evidenceId: string;
   base64: string;
   caseId: string;
+  evidenceUri: string;
 }
 
 export default function InvestigationScreen() {
@@ -278,6 +279,7 @@ export default function InvestigationScreen() {
             const categorizedObjects: CategorizedObject[] = result.detectedObjects.map((obj: DetectedObject) => ({
               id: obj.id,
               evidenceId: pending.evidenceId,
+              evidenceUri: pending.evidenceUri,
               objectName: obj.label,
               confidence: obj.confidence,
               location: obj.location,
@@ -413,6 +415,7 @@ export default function InvestigationScreen() {
           evidenceId: newEvidence.id,
           base64: photo.base64!,
           caseId: activeCase.id,
+          evidenceUri: photo.uri,
         }]);
       }
       

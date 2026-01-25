@@ -180,6 +180,7 @@ export default function EvidenceViewerScreen() {
           const categorizedObjects: CategorizedObject[] = result.detectedObjects.map((obj: DetectedObject) => ({
             id: obj.id,
             evidenceId: evidence.id,
+            evidenceUri: evidence.uri,
             objectName: obj.label,
             confidence: obj.confidence,
             location: obj.location,

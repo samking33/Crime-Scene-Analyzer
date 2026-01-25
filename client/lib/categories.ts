@@ -142,6 +142,7 @@ export function getCategoryIcon(categoryId: number): string {
 export interface CategorizedObject {
   id: string;
   evidenceId: string;
+  evidenceUri?: string;
   objectName: string;
   confidence: "high" | "medium" | "low";
   location: string;
