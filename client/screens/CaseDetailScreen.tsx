@@ -317,13 +317,25 @@ export default function CaseDetailScreen() {
             <Button onPress={handleStartInvestigation} style={styles.investigateButton}>
               Continue Investigation
             </Button>
-            <Button
-              onPress={handleGenerateReport}
-              style={styles.reportButton}
-              disabled={evidence.length === 0 || isGeneratingReport}
-            >
-              {isGeneratingReport ? "Generating PDF..." : "Generate PDF Report"}
-            </Button>
+            <View style={styles.actionRow}>
+              <Button
+                onPress={handleGenerateReport}
+                style={styles.reportButton}
+                disabled={evidence.length === 0 || isGeneratingReport}
+              >
+                {isGeneratingReport ? "Generating PDF..." : "Generate Report"}
+              </Button>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("CategoryDashboard", { caseId });
+                }}
+                style={styles.categoriesButton}
+              >
+                <Feather name="layers" size={20} color={Colors.dark.accent} />
+                <ThemedText style={styles.categoriesButtonText}>Categories</ThemedText>
+              </Pressable>
+            </View>
           </View>
 
           <View style={styles.tabBar}>
@@ -421,7 +433,29 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.success,
   },
   reportButton: {
+    flex: 1,
     backgroundColor: Colors.dark.primary,
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  categoriesButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.accent,
+  },
+  categoriesButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.accent,
   },
   tabBar: {
     flexDirection: "row",

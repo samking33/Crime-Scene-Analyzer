@@ -59,6 +59,7 @@ export interface DetectedObject {
   label: string;
   confidence: ConfidenceLevel;
   category: ObjectCategory;
+  categoryId?: number;
   location: ObjectLocation;
   description?: string;
 }

@@ -34,13 +34,16 @@ type RouteProp = NativeStackScreenProps<RootStackParamList, "EvidenceViewer">["r
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const CATEGORY_COLORS: Record<ObjectCategory, string> = {
-  weapon: "#FF4444",
-  vehicle: "#FFCC00",
-  person: "#4488FF",
-  document: "#44CC44",
-  drug: "#FF9900",
-  biometric: "#AA44FF",
-  other: "#888888",
+  weapon: "#D32F2F",
+  vehicle: "#F57C00",
+  person: "#1976D2",
+  document: "#388E3C",
+  drug: "#C62828",
+  biometric: "#7B1FA2",
+  electronics: "#00796B",
+  markers: "#FBC02D",
+  tools: "#5D4037",
+  other: "#616161",
 };
 
 const LOCATION_POSITIONS: Record<string, { top: string; left: string }> = {
@@ -94,7 +97,7 @@ export default function EvidenceViewerScreen() {
     setIsAnalyzing(true);
     try {
       const base64 = await FileSystem.readAsStringAsync(evidence.uri, {
-        encoding: FileSystem.EncodingType.Base64,
+        encoding: "base64",
       });
       
       const result = await analyzeImage(base64);
