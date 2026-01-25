@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, FlatList, Pressable, StyleProp, ViewStyle } from "react-native";
+import { View, StyleSheet, FlatList, Pressable, StyleProp, ViewStyle, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp, NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Feather } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { format } from "date-fns";
 
@@ -14,6 +15,8 @@ import { Card } from "@/components/Card";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { getObjectsByCategory, getCategoryById, CategorizedObject, Category } from "@/lib/categories";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProp = NativeStackScreenProps<RootStackParamList, "CategoryDetails">["route"];
@@ -34,29 +37,63 @@ function ConfidenceDot({ confidence }: { confidence: string }) {
   return <View style={[styles.confidenceDot, { backgroundColor: getColor() }]} />;
 }
 
-function ObjectCard({ object, categoryColor }: { object: CategorizedObject; categoryColor: string }) {
+function ObjectCard({ 
+  object, 
+  categoryColor, 
+  onImagePress 
+}: { 
+  object: CategorizedObject; 
+  categoryColor: string;
+  onImagePress: (uri: string, evidenceId: string) => void;
+}) {
   const cardStyle = StyleSheet.flatten([styles.objectCard, { borderLeftColor: categoryColor }]) as ViewStyle;
+  
   return (
     <Card style={cardStyle}>
-      <View style={styles.objectHeader}>
-        <ThemedText style={styles.objectName}>{object.objectName}</ThemedText>
-        <ConfidenceDot confidence={object.confidence} />
-      </View>
-      <View style={styles.objectMeta}>
-        <Feather name="map-pin" size={12} color={Colors.dark.textSecondary} />
-        <ThemedText style={styles.objectLocation}>{object.location}</ThemedText>
-      </View>
-      <View style={styles.objectMeta}>
-        <Feather name="clock" size={12} color={Colors.dark.textSecondary} />
-        <ThemedText style={styles.objectTime}>
-          {format(new Date(object.detectedAt), "MMM d, yyyy HH:mm:ss")}
-        </ThemedText>
-      </View>
-      <View style={styles.confidenceRow}>
-        <ThemedText style={styles.confidenceLabel}>Confidence:</ThemedText>
-        <ThemedText style={[styles.confidenceValue, { color: getConfidenceColor(object.confidence) }]}>
-          {object.confidence.charAt(0).toUpperCase() + object.confidence.slice(1)}
-        </ThemedText>
+      <View style={styles.objectCardContent}>
+        {object.evidenceUri ? (
+          <Pressable 
+            onPress={() => onImagePress(object.evidenceUri!, object.evidenceId)}
+            style={styles.thumbnailContainer}
+          >
+            <Image
+              source={{ uri: object.evidenceUri }}
+              style={styles.thumbnail}
+              contentFit="cover"
+            />
+            <View style={styles.thumbnailOverlay}>
+              <Feather name="maximize-2" size={16} color="#fff" />
+            </View>
+          </Pressable>
+        ) : (
+          <View style={[styles.thumbnailPlaceholder, { backgroundColor: categoryColor + "30" }]}>
+            <Feather name="image" size={24} color={categoryColor} />
+          </View>
+        )}
+        
+        <View style={styles.objectInfo}>
+          <View style={styles.objectHeader}>
+            <ThemedText style={styles.objectName} numberOfLines={1}>{object.objectName}</ThemedText>
+            <ConfidenceDot confidence={object.confidence} />
+          </View>
+          <View style={styles.objectMeta}>
+            <Feather name="map-pin" size={12} color={Colors.dark.textSecondary} />
+            <ThemedText style={styles.objectLocation} numberOfLines={1}>{object.location}</ThemedText>
+          </View>
+          <View style={styles.objectMeta}>
+            <Feather name="clock" size={12} color={Colors.dark.textSecondary} />
+            <ThemedText style={styles.objectTime}>
+              {format(new Date(object.detectedAt), "MMM d, HH:mm")}
+            </ThemedText>
+          </View>
+          <View style={styles.confidenceRow}>
+            <View style={[styles.confidenceBadge, { backgroundColor: getConfidenceColor(object.confidence) + "20" }]}>
+              <ThemedText style={[styles.confidenceValue, { color: getConfidenceColor(object.confidence) }]}>
+                {object.confidence.charAt(0).toUpperCase() + object.confidence.slice(1)}
+              </ThemedText>
+            </View>
+          </View>
+        </View>
       </View>
     </Card>
   );
@@ -138,6 +175,11 @@ export default function CategoryDetailsScreen() {
     setFilterBy(filter);
   };
 
+  const handleImagePress = useCallback((evidenceUri: string, evidenceId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    navigation.navigate("EvidenceViewer", { evidenceId, caseId });
+  }, [navigation, caseId]);
+
   if (isLoading || !category) {
     return (
       <View style={[styles.container, { paddingTop: headerHeight }]}>
@@ -158,7 +200,11 @@ export default function CategoryDetailsScreen() {
       <FlatList
         data={filteredAndSortedObjects}
         renderItem={({ item }) => (
-          <ObjectCard object={item} categoryColor={category.colorCode} />
+          <ObjectCard 
+            object={item} 
+            categoryColor={category.colorCode} 
+            onImagePress={handleImagePress}
+          />
         )}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[
@@ -311,19 +357,51 @@ const styles = StyleSheet.create({
   },
   objectCard: {
     borderLeftWidth: 3,
-    padding: Spacing.md,
+    padding: Spacing.sm,
+  },
+  objectCardContent: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  thumbnailContainer: {
+    position: "relative",
+  },
+  thumbnail: {
+    width: 80,
+    height: 80,
+    borderRadius: BorderRadius.md,
+  },
+  thumbnailOverlay: {
+    position: "absolute",
+    bottom: 4,
+    right: 4,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    borderRadius: BorderRadius.sm,
+    padding: 4,
+  },
+  thumbnailPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  objectInfo: {
+    flex: 1,
+    justifyContent: "center",
   },
   objectHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: Spacing.sm,
+    marginBottom: 4,
   },
   objectName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
     color: Colors.dark.text,
     flex: 1,
+    marginRight: Spacing.sm,
   },
   confidenceDot: {
     width: 10,
@@ -334,28 +412,33 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    marginTop: 4,
+    marginTop: 2,
   },
   objectLocation: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.dark.textSecondary,
+    flex: 1,
   },
   objectTime: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.dark.textSecondary,
   },
   confidenceRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
-    marginTop: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  confidenceBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
   },
   confidenceLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.dark.textSecondary,
   },
   confidenceValue: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
   },
   separator: {
