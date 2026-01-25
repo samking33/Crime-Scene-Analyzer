@@ -119,6 +119,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Image data is required" });
       }
 
+      console.log("Starting image analysis, image size:", Math.round(image.length / 1024), "KB");
+
       const detectionResponse = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
