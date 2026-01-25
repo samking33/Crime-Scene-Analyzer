@@ -236,14 +236,22 @@ export default function InvestigationScreen() {
       if (photo.base64) {
         setIsAnalyzing(true);
         try {
-          const analysis = await analyzeImage(photo.base64);
-          if (analysis) {
-            await updateEvidence(newEvidence.id, { aiAnalysis: analysis });
+          const result = await analyzeImage(photo.base64);
+          if (result) {
+            await updateEvidence(newEvidence.id, { 
+              detectedObjects: result.detectedObjects,
+              aiSummary: result.aiSummary,
+              aiAnalysis: result.analysis,
+              analysisStatus: "completed",
+            });
             const updatedEvidence = await getEvidence(activeCase.id);
             setRecentEvidence(updatedEvidence.slice(0, 5));
+            await logActivity(activeCase.id, "AI analysis completed", profile.name, 
+              `${result.objectCount} objects detected`);
           }
         } catch (error) {
           console.error("AI analysis failed:", error);
+          await updateEvidence(newEvidence.id, { analysisStatus: "failed" });
         } finally {
           setIsAnalyzing(false);
         }
