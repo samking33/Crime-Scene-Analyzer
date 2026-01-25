@@ -1,17 +1,22 @@
 import React, { useState, useCallback } from "react";
-import { FlatList, View, StyleSheet, RefreshControl, TextInput } from "react-native";
+import { FlatList, View, StyleSheet, RefreshControl, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
+import Animated, { FadeIn } from "react-native-reanimated";
 
 import { CaseCard } from "@/components/CaseCard";
 import { EmptyState } from "@/components/EmptyState";
+import { Input } from "@/components/Input";
+import { StatCard } from "@/components/Card";
 import { CaseCardSkeleton } from "@/components/SkeletonLoader";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { ThemedText } from "@/components/ThemedText";
+import { Colors, Spacing, BorderRadius, GradientColors, Shadows } from "@/constants/theme";
 import { getCases } from "@/lib/storage";
 import type { Case } from "@/types/case";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -68,9 +73,63 @@ export default function CasesScreen() {
       c.location.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const renderItem = ({ item }: { item: Case }) => (
-    <CaseCard caseData={item} onPress={() => handleCasePress(item)} />
+  const activeCases = cases.filter((c) => c.status === "active").length;
+  const closedCases = cases.filter((c) => c.status === "closed").length;
+  const totalEvidence = cases.reduce((acc, c) => acc + (c.evidenceCount || 0), 0);
+
+  const renderItem = ({ item, index }: { item: Case; index: number }) => (
+    <CaseCard caseData={item} onPress={() => handleCasePress(item)} index={index} />
   );
+
+  const renderHeader = () => {
+    if (cases.length === 0) return null;
+    
+    return (
+      <Animated.View entering={FadeIn.duration(500)} style={styles.headerContent}>
+        <View style={styles.statsGrid}>
+          <StatCard
+            icon={<Feather name="folder" size={24} color={Colors.dark.primary} />}
+            value={activeCases}
+            label="Active Cases"
+          />
+          <StatCard
+            icon={<Feather name="check-circle" size={24} color={Colors.dark.success} />}
+            value={closedCases}
+            label="Closed"
+          />
+        </View>
+        
+        <View style={styles.statsGrid}>
+          <StatCard
+            icon={<Feather name="image" size={24} color={Colors.dark.accent} />}
+            value={totalEvidence}
+            label="Evidence Items"
+          />
+          <StatCard
+            icon={<Feather name="database" size={24} color={Colors.dark.warning} />}
+            value={cases.length}
+            label="Total Cases"
+          />
+        </View>
+
+        <View style={styles.searchContainer}>
+          <Feather name="search" size={18} color={Colors.dark.textTertiary} />
+          <Input
+            style={styles.searchInput}
+            placeholder="Search cases..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            testID="input-search"
+          />
+        </View>
+
+        <View style={styles.sectionHeader}>
+          <ThemedText style={styles.sectionTitle}>Recent Cases</ThemedText>
+          <ThemedText style={styles.sectionCount}>{filteredCases.length}</ThemedText>
+        </View>
+      </Animated.View>
+    );
+  };
 
   const renderEmpty = () => {
     if (isLoading) return null;
@@ -93,6 +152,22 @@ export default function CasesScreen() {
     </View>
   );
 
+  const renderFAB = () => (
+    <Pressable
+      onPress={handleNewCase}
+      style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+    >
+      <LinearGradient
+        colors={GradientColors.primary as [string, string]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.fabGradient}
+      >
+        <Feather name="plus" size={24} color={Colors.dark.text} />
+      </LinearGradient>
+    </Pressable>
+  );
+
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: Colors.dark.backgroundRoot }]}>
@@ -110,8 +185,8 @@ export default function CasesScreen() {
         contentContainerStyle={[
           styles.listContent,
           {
-            paddingTop: headerHeight + Spacing.xl,
-            paddingBottom: tabBarHeight + Spacing.xl,
+            paddingTop: headerHeight + Spacing.lg,
+            paddingBottom: tabBarHeight + Spacing["4xl"],
           },
           filteredCases.length === 0 && !isLoading && styles.emptyListContent,
         ]}
@@ -119,31 +194,19 @@ export default function CasesScreen() {
         data={filteredCases}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        ListHeaderComponent={
-          cases.length > 0 ? (
-            <View style={styles.searchContainer}>
-              <Feather name="search" size={18} color={Colors.dark.textSecondary} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search cases..."
-                placeholderTextColor={Colors.dark.textSecondary}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                testID="input-search"
-              />
-            </View>
-          ) : null
-        }
+        ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            tintColor={Colors.dark.accent}
+            tintColor={Colors.dark.primary}
+            colors={[Colors.dark.primary, Colors.dark.accent]}
           />
         }
       />
+      {cases.length > 0 ? renderFAB() : null}
     </View>
   );
 }
@@ -156,7 +219,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.screenPadding,
   },
   emptyListContent: {
     flex: 1,
@@ -164,24 +227,71 @@ const styles = StyleSheet.create({
   loadingContainer: {
     gap: Spacing.md,
   },
+  headerContent: {
+    marginBottom: Spacing.xl,
+  },
+  statsGrid: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: Colors.dark.border,
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.lg,
-    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    gap: Spacing.md,
   },
   searchInput: {
     flex: 1,
-    height: Spacing.inputHeight,
-    fontSize: 16,
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    paddingHorizontal: 0,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: Spacing.xl,
+    marginBottom: Spacing.md,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
     color: Colors.dark.text,
+  },
+  sectionCount: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.textTertiary,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
   },
   separator: {
     height: Spacing.md,
+  },
+  fab: {
+    position: "absolute",
+    bottom: 100,
+    right: Spacing.xl,
+    borderRadius: 28,
+    overflow: "hidden",
+    ...Shadows.primaryGlow,
+  },
+  fabPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.95 }],
+  },
+  fabGradient: {
+    width: 56,
+    height: 56,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
