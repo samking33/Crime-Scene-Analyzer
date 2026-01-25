@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { View, StyleSheet, Pressable, ScrollView, Dimensions } from "react-native";
+import { View, StyleSheet, Pressable, ScrollView, Dimensions, PanResponder } from "react-native";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { 
   formatTimecode, 
   formatRelativeTimestamp,
@@ -27,7 +27,7 @@ interface TimelineViewProps {
 }
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
-const TIMELINE_PADDING = Spacing.lg * 2;
+const TIMELINE_PADDING = Spacing.screenPadding * 2;
 const TIMELINE_WIDTH = SCREEN_WIDTH - TIMELINE_PADDING;
 
 export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineViewProps) {
@@ -37,6 +37,11 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
   const [isSplitScreen, setIsSplitScreen] = useState(false);
   const [showEventList, setShowEventList] = useState(false);
   const [activePhoto, setActivePhoto] = useState<Evidence | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  
+  const timelineRef = useRef<View>(null);
+  const timelineLayoutRef = useRef({ x: 0, width: 0 });
   
   const hasBackgroundVideo = Boolean(caseData.backgroundVideoUri);
   const totalDuration = caseData.backgroundVideoDuration || 0;
@@ -53,32 +58,41 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
     (p) => {
       p.loop = false;
       p.playbackRate = playbackSpeed;
+      p.muted = isMuted;
     }
   );
+
+  useEffect(() => {
+    if (player) {
+      player.muted = isMuted;
+    }
+  }, [player, isMuted]);
 
   useEffect(() => {
     if (!player) return;
     
     const interval = setInterval(() => {
-      if (player.playing) {
-        setCurrentTime(player.currentTime);
-        setIsPlaying(true);
-        
-        const nearbyPhoto = photos.find((p) => {
-          const photoTime = p.relativeTimestamp || 0;
-          return Math.abs(photoTime - player.currentTime) < 1;
-        });
-        if (nearbyPhoto && nearbyPhoto.id !== activePhoto?.id) {
-          setActivePhoto(nearbyPhoto);
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (!isScrubbing) {
+        if (player.playing) {
+          setCurrentTime(player.currentTime);
+          setIsPlaying(true);
+          
+          const nearbyPhoto = photos.find((p) => {
+            const photoTime = p.relativeTimestamp || 0;
+            return Math.abs(photoTime - player.currentTime) < 1;
+          });
+          if (nearbyPhoto && nearbyPhoto.id !== activePhoto?.id) {
+            setActivePhoto(nearbyPhoto);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }
+        } else {
+          setIsPlaying(false);
         }
-      } else {
-        setIsPlaying(false);
       }
     }, 100);
     
     return () => clearInterval(interval);
-  }, [player, photos, activePhoto]);
+  }, [player, photos, activePhoto, isScrubbing]);
 
   const handlePlayPause = useCallback(() => {
     if (!player) return;
@@ -93,15 +107,28 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
 
   const handleSeekToTime = useCallback((seconds: number) => {
     if (!player) return;
-    player.currentTime = seconds;
-    setCurrentTime(seconds);
+    const clampedTime = Math.max(0, Math.min(totalDuration, seconds));
+    player.currentTime = clampedTime;
+    setCurrentTime(clampedTime);
+  }, [player, totalDuration]);
+
+  const handleSeekForward = useCallback(() => {
+    const newTime = Math.min(totalDuration, currentTime + 10);
+    handleSeekToTime(newTime);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [player]);
+  }, [currentTime, totalDuration, handleSeekToTime]);
+
+  const handleSeekBackward = useCallback(() => {
+    const newTime = Math.max(0, currentTime - 10);
+    handleSeekToTime(newTime);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [currentTime, handleSeekToTime]);
 
   const handleMarkerPress = useCallback((evidence: Evidence) => {
     if (evidence.relativeTimestamp !== undefined) {
       handleSeekToTime(evidence.relativeTimestamp);
       setActivePhoto(evidence);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   }, [handleSeekToTime]);
 
@@ -111,6 +138,7 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
       handleSeekToTime(next.relativeTimestamp);
       setActivePhoto(next);
     }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }, [evidence, currentTime, handleSeekToTime]);
 
   const handlePreviousEvidence = useCallback(() => {
@@ -119,6 +147,7 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
       handleSeekToTime(prev.relativeTimestamp);
       setActivePhoto(prev);
     }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }, [evidence, currentTime, handleSeekToTime]);
 
   const handleSpeedChange = useCallback(() => {
@@ -132,13 +161,54 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [player, playbackSpeed]);
 
+  const handleMuteToggle = useCallback(() => {
+    setIsMuted(!isMuted);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [isMuted]);
+
   const handleFrameStep = useCallback((forward: boolean) => {
     if (!player) return;
     const step = forward ? 1 / 30 : -1 / 30;
     const newTime = Math.max(0, Math.min(totalDuration, currentTime + step));
     player.currentTime = newTime;
     setCurrentTime(newTime);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [player, currentTime, totalDuration]);
+
+  const handleTimelineLayout = (event: any) => {
+    timelineLayoutRef.current = {
+      x: event.nativeEvent.layout.x,
+      width: event.nativeEvent.layout.width,
+    };
+  };
+
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: (evt) => {
+      setIsScrubbing(true);
+      if (player?.playing) {
+        player.pause();
+      }
+      const locationX = evt.nativeEvent.locationX;
+      const progress = Math.max(0, Math.min(1, locationX / timelineLayoutRef.current.width));
+      const newTime = progress * totalDuration;
+      handleSeekToTime(newTime);
+    },
+    onPanResponderMove: (evt) => {
+      const locationX = evt.nativeEvent.locationX;
+      const progress = Math.max(0, Math.min(1, locationX / timelineLayoutRef.current.width));
+      const newTime = progress * totalDuration;
+      handleSeekToTime(newTime);
+    },
+    onPanResponderRelease: () => {
+      setIsScrubbing(false);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    },
+    onPanResponderTerminate: () => {
+      setIsScrubbing(false);
+    },
+  });
 
   const renderPhotoMarker = (photo: Evidence) => {
     if (photo.relativeTimestamp === undefined) return null;
@@ -169,7 +239,12 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
 
   const renderTimelineBar = () => (
     <View style={styles.timelineBarContainer}>
-      <View style={styles.timelineBar}>
+      <View 
+        ref={timelineRef}
+        style={styles.timelineBar}
+        onLayout={handleTimelineLayout}
+        {...panResponder.panHandlers}
+      >
         <View 
           style={[
             styles.timelineProgress,
@@ -199,41 +274,61 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
           </Pressable>
         ))}
       </View>
+      
+      <ThemedText style={styles.scrubHint}>
+        Drag to scrub through timeline
+      </ThemedText>
     </View>
   );
 
   const renderPlaybackControls = () => (
     <View style={styles.controlsContainer}>
       <View style={styles.controlsRow}>
-        <Pressable onPress={handlePreviousEvidence} style={styles.controlButton}>
-          <Feather name="skip-back" size={20} color={Colors.dark.text} />
+        <Pressable onPress={handleSeekBackward} style={styles.controlButton}>
+          <Feather name="rewind" size={18} color={Colors.dark.text} />
+          <ThemedText style={styles.seekLabel}>10s</ThemedText>
         </Pressable>
         
-        <Pressable onPress={() => handleFrameStep(false)} style={styles.controlButton}>
-          <Feather name="chevron-left" size={20} color={Colors.dark.text} />
+        <Pressable onPress={handlePreviousEvidence} style={styles.controlButton}>
+          <Feather name="skip-back" size={18} color={Colors.dark.text} />
+        </Pressable>
+        
+        <Pressable onPress={() => handleFrameStep(false)} style={styles.controlButtonSmall}>
+          <Feather name="chevron-left" size={18} color={Colors.dark.text} />
         </Pressable>
         
         <Pressable onPress={handlePlayPause} style={styles.playButton}>
           <Feather 
             name={isPlaying ? "pause" : "play"} 
-            size={28} 
+            size={24} 
             color={Colors.dark.text} 
           />
         </Pressable>
         
-        <Pressable onPress={() => handleFrameStep(true)} style={styles.controlButton}>
-          <Feather name="chevron-right" size={20} color={Colors.dark.text} />
+        <Pressable onPress={() => handleFrameStep(true)} style={styles.controlButtonSmall}>
+          <Feather name="chevron-right" size={18} color={Colors.dark.text} />
         </Pressable>
         
         <Pressable onPress={handleNextEvidence} style={styles.controlButton}>
-          <Feather name="skip-forward" size={20} color={Colors.dark.text} />
+          <Feather name="skip-forward" size={18} color={Colors.dark.text} />
+        </Pressable>
+        
+        <Pressable onPress={handleSeekForward} style={styles.controlButton}>
+          <Feather name="fast-forward" size={18} color={Colors.dark.text} />
+          <ThemedText style={styles.seekLabel}>10s</ThemedText>
         </Pressable>
       </View>
       
       <View style={styles.controlsSecondRow}>
-        <Pressable onPress={handleSpeedChange} style={styles.speedButton}>
-          <ThemedText style={styles.speedText}>{playbackSpeed}x</ThemedText>
-        </Pressable>
+        <View style={styles.leftControls}>
+          <Pressable onPress={handleSpeedChange} style={styles.speedButton}>
+            <ThemedText style={styles.speedText}>{playbackSpeed}x</ThemedText>
+          </Pressable>
+          
+          <Pressable onPress={handleMuteToggle} style={[styles.muteButton, isMuted && styles.muteButtonActive]}>
+            <Feather name={isMuted ? "volume-x" : "volume-2"} size={16} color={isMuted ? Colors.dark.error : Colors.dark.text} />
+          </Pressable>
+        </View>
         
         <View style={styles.timeDisplay}>
           <ThemedText style={styles.timeText}>
@@ -245,7 +340,7 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
           onPress={() => setIsSplitScreen(!isSplitScreen)} 
           style={[styles.splitButton, isSplitScreen && styles.splitButtonActive]}
         >
-          <Feather name="columns" size={18} color={Colors.dark.text} />
+          <Feather name="columns" size={16} color={Colors.dark.text} />
         </Pressable>
       </View>
     </View>
@@ -253,7 +348,7 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
 
   const renderPhotoThumbnails = () => (
     <View style={styles.thumbnailsContainer}>
-      <ThemedText style={styles.thumbnailsTitle}>Photos Timeline</ThemedText>
+      <ThemedText style={styles.thumbnailsTitle}>Photos ({photos.length})</ThemedText>
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
@@ -285,9 +380,6 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
                 <ThemedText style={styles.thumbnailTimecode}>
                   {formatTimecode(photo.relativeTimestamp || 0)}
                 </ThemedText>
-                <ThemedText style={styles.thumbnailAbsolute}>
-                  {formatAbsoluteTime(photo.timestamp)}
-                </ThemedText>
               </View>
             </Pressable>
           );
@@ -302,16 +394,16 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
         onPress={() => setShowEventList(!showEventList)}
         style={styles.eventListHeader}
       >
-        <ThemedText style={styles.eventListTitle}>Timeline Events</ThemedText>
+        <ThemedText style={styles.eventListTitle}>Events ({timelineEvents.length})</ThemedText>
         <Feather 
           name={showEventList ? "chevron-up" : "chevron-down"} 
-          size={20} 
+          size={18} 
           color={Colors.dark.textSecondary} 
         />
       </Pressable>
       
       {showEventList ? (
-        <View style={styles.eventList}>
+        <ScrollView style={styles.eventList} nestedScrollEnabled>
           {timelineEvents.map((event, index) => (
             <Pressable
               key={event.id}
@@ -336,28 +428,14 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
               />
               <View style={styles.eventContent}>
                 <ThemedText style={styles.eventLabel}>{event.label}</ThemedText>
-                <View style={styles.eventTimeRow}>
-                  <ThemedText style={styles.eventTime}>
-                    {formatAbsoluteTime(event.timestamp)}
-                  </ThemedText>
-                  {event.relativeTimestamp !== undefined ? (
-                    <ThemedText style={styles.eventRelative}>
-                      ({formatRelativeTimestamp(event.relativeTimestamp)} into recording)
-                    </ThemedText>
-                  ) : null}
-                </View>
-                {event.details ? (
-                  <ThemedText style={styles.eventDetails} numberOfLines={2}>
-                    {event.details}
-                  </ThemedText>
-                ) : null}
+                <ThemedText style={styles.eventTime}>
+                  {formatAbsoluteTime(event.timestamp)}
+                  {event.relativeTimestamp !== undefined ? ` (${formatRelativeTimestamp(event.relativeTimestamp)})` : ""}
+                </ThemedText>
               </View>
-              {index < timelineEvents.length - 1 ? (
-                <View style={styles.eventLine} />
-              ) : null}
             </Pressable>
           ))}
-        </View>
+        </ScrollView>
       ) : null}
     </View>
   );
@@ -374,8 +452,8 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
           />
         ) : (
           <View style={styles.noVideoPlaceholder}>
-            <Feather name="video-off" size={32} color={Colors.dark.textSecondary} />
-            <ThemedText style={styles.noVideoText}>No background video</ThemedText>
+            <Feather name="video-off" size={28} color={Colors.dark.textSecondary} />
+            <ThemedText style={styles.noVideoText}>No video</ThemedText>
           </View>
         )}
       </View>
@@ -389,19 +467,10 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
           />
         ) : (
           <View style={styles.noPhotoPlaceholder}>
-            <Feather name="image" size={32} color={Colors.dark.textSecondary} />
-            <ThemedText style={styles.noPhotoText}>
-              Select a photo from the timeline
-            </ThemedText>
+            <Feather name="image" size={28} color={Colors.dark.textSecondary} />
+            <ThemedText style={styles.noPhotoText}>Select photo</ThemedText>
           </View>
         )}
-        {activePhoto ? (
-          <View style={styles.photoInfoOverlay}>
-            <ThemedText style={styles.photoInfoText}>
-              {formatTimecode(activePhoto.relativeTimestamp || 0)} - {activePhoto.aiSummary?.substring(0, 50) || "Photo evidence"}
-            </ThemedText>
-          </View>
-        ) : null}
       </View>
     </View>
   );
@@ -409,7 +478,7 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
   if (!hasBackgroundVideo && photos.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Feather name="clock" size={48} color={Colors.dark.textSecondary} />
+        <Feather name="clock" size={48} color={Colors.dark.textTertiary} />
         <ThemedText style={styles.emptyTitle}>No Timeline Data</ThemedText>
         <ThemedText style={styles.emptyText}>
           Start an investigation with background recording to capture timeline data
@@ -419,7 +488,7 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {isSplitScreen ? (
         renderSplitView()
       ) : hasBackgroundVideo && player ? (
@@ -433,9 +502,9 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
         </View>
       ) : photos.length > 0 ? (
         <View style={styles.noVideoMessage}>
-          <Feather name="video-off" size={24} color={Colors.dark.textSecondary} />
+          <Feather name="video-off" size={20} color={Colors.dark.textSecondary} />
           <ThemedText style={styles.noVideoMessageText}>
-            No background video - viewing photo timeline only
+            Photo timeline only (no video)
           </ThemedText>
         </View>
       ) : null}
@@ -447,7 +516,7 @@ export function TimelineView({ caseData, evidence, onEvidencePress }: TimelineVi
       {photos.length > 0 ? renderPhotoThumbnails() : null}
       
       {renderEventList()}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -458,7 +527,7 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
-    padding: Spacing["3xl"],
+    padding: Spacing["2xl"],
     gap: Spacing.md,
   },
   emptyTitle: {
@@ -472,7 +541,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   videoContainer: {
-    height: 200,
+    height: 180,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
     overflow: "hidden",
@@ -487,7 +556,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: Spacing.md,
     backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.md,
     marginBottom: Spacing.md,
     gap: Spacing.sm,
   },
@@ -496,13 +565,12 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
   },
   timelineBarContainer: {
-    marginBottom: Spacing.lg,
-    paddingHorizontal: Spacing.xs,
+    marginBottom: Spacing.md,
   },
   timelineBar: {
-    height: 32,
+    height: 40,
     backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.md,
     position: "relative",
     overflow: "visible",
   },
@@ -512,81 +580,107 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     backgroundColor: Colors.dark.primary,
-    borderRadius: BorderRadius.sm,
-    opacity: 0.3,
+    borderRadius: BorderRadius.md,
+    opacity: 0.4,
   },
   marker: {
     position: "absolute",
-    top: -4,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    top: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    marginLeft: -10,
+    marginLeft: -9,
     zIndex: 10,
   },
   playhead: {
     position: "absolute",
     top: -4,
-    width: 3,
-    height: 40,
+    width: 4,
+    height: 48,
     backgroundColor: Colors.dark.accent,
-    borderRadius: 1.5,
-    marginLeft: -1.5,
+    borderRadius: 2,
+    marginLeft: -2,
     zIndex: 20,
   },
   tickMarksContainer: {
     position: "relative",
-    height: 24,
+    height: 20,
     marginTop: Spacing.xs,
   },
   tickMark: {
     position: "absolute",
     alignItems: "center",
-    transform: [{ translateX: -20 }],
+    transform: [{ translateX: -15 }],
   },
   tickLine: {
     width: 1,
-    height: 6,
+    height: 4,
     backgroundColor: Colors.dark.border,
   },
   tickLabel: {
+    fontSize: 9,
+    color: Colors.dark.textTertiary,
+    marginTop: 1,
+  },
+  scrubHint: {
     fontSize: 10,
-    color: Colors.dark.textSecondary,
-    marginTop: 2,
+    color: Colors.dark.textTertiary,
+    textAlign: "center",
+    marginTop: Spacing.xs,
   },
   controlsContainer: {
     marginBottom: Spacing.lg,
+    gap: Spacing.md,
   },
   controlsRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.md,
-    marginBottom: Spacing.md,
+    gap: Spacing.xs,
   },
   controlButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.md,
     backgroundColor: Colors.dark.backgroundSecondary,
     alignItems: "center",
     justifyContent: "center",
   },
-  playButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.dark.accent,
+  controlButtonSmall: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.backgroundSecondary,
     alignItems: "center",
     justifyContent: "center",
+  },
+  seekLabel: {
+    fontSize: 8,
+    color: Colors.dark.textTertiary,
+    marginTop: -2,
+  },
+  playButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginHorizontal: Spacing.sm,
+    ...Shadows.md,
   },
   controlsSecondRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  leftControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
   },
   speedButton: {
     paddingHorizontal: Spacing.md,
@@ -595,32 +689,43 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   speedText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
     color: Colors.dark.accent,
+  },
+  muteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  muteButtonActive: {
+    backgroundColor: "rgba(239, 83, 80, 0.2)",
   },
   timeDisplay: {
     flex: 1,
     alignItems: "center",
   },
   timeText: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.dark.text,
     fontFamily: "monospace",
   },
   splitButton: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: BorderRadius.sm,
     backgroundColor: Colors.dark.backgroundSecondary,
     alignItems: "center",
     justifyContent: "center",
   },
   splitButtonActive: {
-    backgroundColor: Colors.dark.accent,
+    backgroundColor: Colors.dark.primary,
   },
   thumbnailsContainer: {
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   thumbnailsTitle: {
     fontSize: 14,
@@ -632,7 +737,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   thumbnailItem: {
-    width: 100,
+    width: 80,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.sm,
     overflow: "hidden",
@@ -644,27 +749,24 @@ const styles = StyleSheet.create({
   },
   thumbnailImage: {
     width: "100%",
-    height: 70,
+    height: 60,
   },
   thumbnailPlaceholder: {
     width: "100%",
-    height: 70,
+    height: 60,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Colors.dark.backgroundTertiary,
   },
   thumbnailInfo: {
     padding: Spacing.xs,
+    alignItems: "center",
   },
   thumbnailTimecode: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "600",
     color: Colors.dark.accent,
     fontFamily: "monospace",
-  },
-  thumbnailAbsolute: {
-    fontSize: 10,
-    color: Colors.dark.textSecondary,
   },
   eventListContainer: {
     backgroundColor: Colors.dark.backgroundSecondary,
@@ -683,112 +785,78 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   eventList: {
+    maxHeight: 200,
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.md,
   },
   eventItem: {
     flexDirection: "row",
     paddingVertical: Spacing.sm,
-    position: "relative",
+    alignItems: "flex-start",
   },
   eventDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: Spacing.md,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: Spacing.sm,
     marginTop: 4,
-  },
-  eventLine: {
-    position: "absolute",
-    left: 5,
-    top: 20,
-    bottom: -8,
-    width: 2,
-    backgroundColor: Colors.dark.border,
   },
   eventContent: {
     flex: 1,
   },
   eventLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "500",
     color: Colors.dark.text,
   },
-  eventTimeRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.xs,
+  eventTime: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
     marginTop: 2,
   },
-  eventTime: {
-    fontSize: 12,
-    color: Colors.dark.accent,
-    fontFamily: "monospace",
-  },
-  eventRelative: {
-    fontSize: 12,
-    color: Colors.dark.textSecondary,
-  },
-  eventDetails: {
-    fontSize: 12,
-    color: Colors.dark.textSecondary,
-    marginTop: 4,
-  },
   splitContainer: {
-    flex: 1,
+    flexDirection: "row",
+    gap: Spacing.sm,
     marginBottom: Spacing.md,
   },
   splitVideoContainer: {
-    height: 150,
+    flex: 1,
+    height: 140,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
     overflow: "hidden",
-    marginBottom: Spacing.sm,
   },
   splitVideo: {
-    flex: 1,
-  },
-  splitPhotoContainer: {
-    height: 150,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.md,
-    overflow: "hidden",
-    position: "relative",
-  },
-  splitPhoto: {
     flex: 1,
   },
   noVideoPlaceholder: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   noVideoText: {
-    fontSize: 13,
+    fontSize: 11,
     color: Colors.dark.textSecondary,
+  },
+  splitPhotoContainer: {
+    flex: 1,
+    height: 140,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  splitPhoto: {
+    flex: 1,
   },
   noPhotoPlaceholder: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   noPhotoText: {
-    fontSize: 13,
+    fontSize: 11,
     color: Colors.dark.textSecondary,
-    textAlign: "center",
-  },
-  photoInfoOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    padding: Spacing.sm,
-  },
-  photoInfoText: {
-    fontSize: 12,
-    color: Colors.dark.text,
   },
 });

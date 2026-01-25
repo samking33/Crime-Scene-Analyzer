@@ -71,6 +71,8 @@ export default function EvidenceViewerScreen() {
   const [showDetails, setShowDetails] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showAnnotated, setShowAnnotated] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -82,8 +84,23 @@ export default function EvidenceViewerScreen() {
   const player = evidence.type === "video" && evidence.uri
     ? useVideoPlayer(evidence.uri, (p) => {
         p.loop = false;
+        p.muted = isMuted;
       })
     : null;
+
+  React.useEffect(() => {
+    if (player) {
+      player.muted = isMuted;
+    }
+  }, [player, isMuted]);
+
+  React.useEffect(() => {
+    if (!player) return;
+    const interval = setInterval(() => {
+      setIsPlaying(player.playing);
+    }, 100);
+    return () => clearInterval(interval);
+  }, [player]);
 
   const triggerHaptic = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -91,6 +108,30 @@ export default function EvidenceViewerScreen() {
 
   const toggleControls = () => {
     setShowControls(!showControls);
+  };
+
+  const handlePlayPause = () => {
+    if (!player) return;
+    if (player.playing) {
+      player.pause();
+    } else {
+      player.play();
+    }
+    triggerHaptic();
+  };
+
+  const handleMuteToggle = () => {
+    setIsMuted(!isMuted);
+    triggerHaptic();
+  };
+
+  const handleSeek = (forward: boolean) => {
+    if (!player) return;
+    const step = forward ? 10 : -10;
+    const duration = evidence.duration || 60;
+    const newTime = Math.max(0, Math.min(duration, player.currentTime + step));
+    player.currentTime = newTime;
+    triggerHaptic();
   };
 
   const handleReanalyze = useCallback(async () => {
@@ -262,13 +303,41 @@ export default function EvidenceViewerScreen() {
   const renderContent = () => {
     if (evidence.type === "video" && player) {
       return (
-        <VideoView
-          player={player}
-          style={styles.media}
-          allowsFullscreen
-          allowsPictureInPicture
-          contentFit="contain"
-        />
+        <View style={styles.videoWrapper}>
+          <VideoView
+            player={player}
+            style={styles.media}
+            allowsFullscreen
+            allowsPictureInPicture
+            contentFit="contain"
+            nativeControls={false}
+          />
+          {showControls ? (
+            <View style={styles.videoControlsOverlay}>
+              <View style={styles.videoControlsRow}>
+                <Pressable onPress={() => handleSeek(false)} style={styles.videoControlButton}>
+                  <Feather name="rewind" size={20} color={Colors.dark.text} />
+                </Pressable>
+                <Pressable onPress={handlePlayPause} style={styles.videoPlayButton}>
+                  <Feather name={isPlaying ? "pause" : "play"} size={28} color={Colors.dark.text} />
+                </Pressable>
+                <Pressable onPress={() => handleSeek(true)} style={styles.videoControlButton}>
+                  <Feather name="fast-forward" size={20} color={Colors.dark.text} />
+                </Pressable>
+              </View>
+              <View style={styles.videoBottomControls}>
+                <Pressable onPress={handleMuteToggle} style={[styles.muteButton, isMuted && styles.muteButtonActive]}>
+                  <Feather name={isMuted ? "volume-x" : "volume-2"} size={18} color={isMuted ? Colors.dark.error : Colors.dark.text} />
+                </Pressable>
+                {evidence.duration ? (
+                  <ThemedText style={styles.videoDuration}>
+                    {Math.floor(evidence.duration / 60)}:{Math.floor(evidence.duration % 60).toString().padStart(2, "0")}
+                  </ThemedText>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+        </View>
       );
     }
 
@@ -779,5 +848,65 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.dark.textSecondary,
     textAlign: "center",
+  },
+  videoWrapper: {
+    flex: 1,
+    position: "relative",
+  },
+  videoControlsOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  videoControlsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xl,
+  },
+  videoControlButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  videoPlayButton: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  videoBottomControls: {
+    position: "absolute",
+    bottom: Spacing.lg,
+    left: Spacing.lg,
+    right: Spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  muteButton: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.md,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  muteButtonActive: {
+    backgroundColor: "rgba(239,83,80,0.3)",
+  },
+  videoDuration: {
+    fontSize: 13,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    backgroundColor: "rgba(0,0,0,0.5)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
   },
 });

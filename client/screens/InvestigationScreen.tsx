@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { View, StyleSheet, ScrollView, Platform, Pressable, Linking } from "react-native";
+import { View, StyleSheet, ScrollView, Platform, Pressable, Linking, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -20,6 +20,7 @@ import Animated, {
   useSharedValue,
   withSpring,
   runOnJS,
+  FadeIn,
 } from "react-native-reanimated";
 
 import { EmptyState } from "@/components/EmptyState";
@@ -28,7 +29,7 @@ import { EvidenceButton } from "@/components/EvidenceButton";
 import { EvidenceCard } from "@/components/EvidenceCard";
 import { Button } from "@/components/Button";
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { getActiveCase, getCase, getEvidence, addEvidence, setActiveCase, updateCase, logActivity, getProfile, updateEvidence } from "@/lib/storage";
 import { analyzeImage } from "@/lib/ai";
 import { saveCategorizedObjects, CategorizedObject } from "@/lib/categories";
@@ -36,6 +37,12 @@ import type { Case, Evidence, DetectedObject } from "@/types/case";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+interface PendingAnalysis {
+  evidenceId: string;
+  base64: string;
+  caseId: string;
+}
 
 export default function InvestigationScreen() {
   const insets = useSafeAreaInsets();
@@ -49,12 +56,13 @@ export default function InvestigationScreen() {
   const [isVideoRecording, setIsVideoRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState("00:00:00");
   const [isLoading, setIsLoading] = useState(true);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [isProcessingAnalysis, setIsProcessingAnalysis] = useState(false);
   const [facing, setFacing] = useState<"front" | "back">("back");
+  const [pendingAnalysisList, setPendingAnalysisList] = useState<PendingAnalysis[]>([]);
   
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [locationPermission, requestLocationPermission] = Location.useForegroundPermissions();
-  const [micPermission, setMicPermission] = useState(false);
   
   const cameraRef = useRef<CameraView>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -165,6 +173,7 @@ export default function InvestigationScreen() {
     
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setIsRecording(true);
+    setPendingAnalysisList([]);
     
     const investigationStartTime = new Date().toISOString();
     const videoStartTimestamp = Date.now();
@@ -184,7 +193,9 @@ export default function InvestigationScreen() {
       videoRecordingStartTime: videoStartTimestamp,
     });
     
-    startBackgroundVideoRecording();
+    if (Platform.OS !== "web") {
+      startBackgroundVideoRecording();
+    }
   };
 
   const startBackgroundVideoRecording = async () => {
@@ -225,6 +236,74 @@ export default function InvestigationScreen() {
     }
   };
 
+  const processAllPendingAnalysis = async () => {
+    if (pendingAnalysisList.length === 0) return;
+    
+    setIsProcessingAnalysis(true);
+    const profile = await getProfile();
+    
+    for (const pending of pendingAnalysisList) {
+      try {
+        const result = await analyzeImage(pending.base64);
+        if (result) {
+          let annotatedImageUri: string | undefined;
+          
+          if (result.annotatedImage) {
+            const docDir = FileSystem.documentDirectory || "";
+            const annotatedPath = `${docDir}${pending.caseId}/annotated_${pending.evidenceId}.jpg`;
+            await FileSystem.makeDirectoryAsync(`${docDir}${pending.caseId}`, { intermediates: true }).catch(() => {});
+            await FileSystem.writeAsStringAsync(annotatedPath, result.annotatedImage, {
+              encoding: "base64",
+            });
+            annotatedImageUri = annotatedPath;
+          }
+          
+          await updateEvidence(pending.evidenceId, { 
+            detectedObjects: result.detectedObjects,
+            aiSummary: result.aiSummary,
+            aiAnalysis: result.analysis,
+            analysisStatus: "completed",
+            annotatedImageUri,
+          });
+          
+          await logActivity(pending.caseId, "AI analysis completed", profile.name, 
+            `${result.objectCount} objects detected`);
+          
+          if (result.detectedObjects && result.detectedObjects.length > 0) {
+            const categoryNameToId: Record<string, number> = {
+              weapon: 1, vehicle: 2, person: 3, biometric: 4, drug: 5,
+              document: 6, electronics: 7, markers: 8, tools: 9, other: 10,
+            };
+            
+            const categorizedObjects: CategorizedObject[] = result.detectedObjects.map((obj: DetectedObject) => ({
+              id: obj.id,
+              evidenceId: pending.evidenceId,
+              objectName: obj.label,
+              confidence: obj.confidence,
+              location: obj.location,
+              categoryId: obj.categoryId || categoryNameToId[obj.category] || 10,
+              categoryName: obj.category,
+              detectedAt: Date.now(),
+            }));
+            
+            await saveCategorizedObjects(pending.caseId, categorizedObjects);
+          }
+        }
+      } catch (error) {
+        console.error("AI analysis failed for evidence:", pending.evidenceId, error);
+        await updateEvidence(pending.evidenceId, { analysisStatus: "failed" });
+      }
+    }
+    
+    setPendingAnalysisList([]);
+    setIsProcessingAnalysis(false);
+    
+    if (activeCase) {
+      const updatedEvidence = await getEvidence(activeCase.id);
+      setRecentEvidence(updatedEvidence.slice(0, 5));
+    }
+  };
+
   const handleStopInvestigation = async () => {
     if (!activeCase) return;
     
@@ -254,6 +333,8 @@ export default function InvestigationScreen() {
       investigationEndTime,
       videoRecordingEndTime: videoEndTimestamp,
     });
+    
+    await processAllPendingAnalysis();
   };
 
   const getCurrentLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
@@ -276,8 +357,9 @@ export default function InvestigationScreen() {
   };
 
   const handleCapturePhoto = async () => {
-    if (!activeCase || !cameraRef.current) return;
+    if (!activeCase || !cameraRef.current || isCapturing) return;
     
+    setIsCapturing(true);
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       
@@ -288,7 +370,10 @@ export default function InvestigationScreen() {
         quality: 0.7,
         base64: true,
       });
-      if (!photo) return;
+      if (!photo) {
+        setIsCapturing(false);
+        return;
+      }
       
       const location = await getCurrentLocation();
       const profile = await getProfile();
@@ -309,6 +394,7 @@ export default function InvestigationScreen() {
         relativeTimestamp,
         latitude: location?.latitude,
         longitude: location?.longitude,
+        analysisStatus: "pending",
       });
       
       await logActivity(activeCase.id, "Photo captured", profile.name, location ? "GPS tagged" : "No GPS");
@@ -320,69 +406,29 @@ export default function InvestigationScreen() {
       if (updatedCase) setActiveCaseData(updatedCase);
 
       if (photo.base64) {
-        setIsAnalyzing(true);
-        try {
-          const result = await analyzeImage(photo.base64);
-          if (result) {
-            let annotatedImageUri: string | undefined;
-            
-            if (result.annotatedImage) {
-              const docDir = FileSystem.documentDirectory || "";
-              const annotatedPath = `${docDir}${activeCase.id}/annotated_${newEvidence.id}.jpg`;
-              await FileSystem.makeDirectoryAsync(`${docDir}${activeCase.id}`, { intermediates: true }).catch(() => {});
-              await FileSystem.writeAsStringAsync(annotatedPath, result.annotatedImage, {
-                encoding: "base64",
-              });
-              annotatedImageUri = annotatedPath;
-            }
-            
-            await updateEvidence(newEvidence.id, { 
-              detectedObjects: result.detectedObjects,
-              aiSummary: result.aiSummary,
-              aiAnalysis: result.analysis,
-              analysisStatus: "completed",
-              annotatedImageUri,
-            });
-            const updatedEvidence = await getEvidence(activeCase.id);
-            setRecentEvidence(updatedEvidence.slice(0, 5));
-            await logActivity(activeCase.id, "AI analysis completed", profile.name, 
-              `${result.objectCount} objects detected`);
-            
-            if (result.detectedObjects && result.detectedObjects.length > 0) {
-              const categoryNameToId: Record<string, number> = {
-                weapon: 1, vehicle: 2, person: 3, biometric: 4, drug: 5,
-                document: 6, electronics: 7, markers: 8, tools: 9, other: 10,
-              };
-              
-              const categorizedObjects: CategorizedObject[] = result.detectedObjects.map((obj: DetectedObject) => ({
-                id: obj.id,
-                evidenceId: newEvidence.id,
-                objectName: obj.label,
-                confidence: obj.confidence,
-                location: obj.location,
-                categoryId: obj.categoryId || categoryNameToId[obj.category] || 10,
-                categoryName: obj.category,
-                detectedAt: Date.now(),
-              }));
-              
-              await saveCategorizedObjects(activeCase.id, categorizedObjects);
-            }
-          }
-        } catch (error) {
-          console.error("AI analysis failed:", error);
-          await updateEvidence(newEvidence.id, { analysisStatus: "failed" });
-        } finally {
-          setIsAnalyzing(false);
-        }
+        setPendingAnalysisList(prev => [...prev, {
+          evidenceId: newEvidence.id,
+          base64: photo.base64!,
+          caseId: activeCase.id,
+        }]);
       }
       
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error("Failed to capture photo:", error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsCapturing(false);
     }
   };
 
   const handleStartVideoRecording = async () => {
     if (!activeCase || !cameraRef.current || isVideoRecording) return;
+    
+    if (Platform.OS === "web") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      return;
+    }
     
     const recordStartTime = Date.now();
     
@@ -471,7 +517,10 @@ export default function InvestigationScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, { paddingTop: headerHeight }]}>
-        <ThemedText style={styles.loadingText}>Loading...</ThemedText>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <ThemedText style={styles.loadingText}>Loading investigation...</ThemedText>
+        </View>
       </View>
     );
   }
@@ -491,6 +540,7 @@ export default function InvestigationScreen() {
   }
 
   const permissionsGranted = cameraPermission?.granted;
+  const pendingCount = pendingAnalysisList.length;
 
   return (
     <View style={[styles.container, { backgroundColor: Colors.dark.backgroundRoot }]}>
@@ -499,12 +549,13 @@ export default function InvestigationScreen() {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingTop: headerHeight + Spacing.lg,
+            paddingTop: headerHeight + Spacing.md,
             paddingBottom: tabBarHeight + Spacing.xl,
           },
         ]}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
+        <Animated.View entering={FadeIn.duration(300)} style={styles.header}>
           <View style={styles.caseInfo}>
             <ThemedText style={styles.caseId}>{activeCase.caseId}</ThemedText>
             <ThemedText style={styles.caseTitle} numberOfLines={1}>
@@ -514,53 +565,56 @@ export default function InvestigationScreen() {
           {isRecording ? (
             <RecordingIndicator duration={recordingDuration} isRecording={isRecording} />
           ) : null}
-        </View>
+        </Animated.View>
 
         {permissionsGranted ? (
-          <GestureHandlerRootView style={styles.cameraWrapper}>
-            <GestureDetector gesture={composedGesture}>
-              <Animated.View style={styles.cameraContainer}>
-                <CameraView
-                  ref={cameraRef}
-                  style={styles.camera}
-                  facing={facing}
-                  zoom={zoom.value}
-                  mode="video"
-                />
-                {!isRecording ? (
-                  <View style={styles.cameraOverlay}>
-                    <ThemedText style={styles.overlayText}>Camera on standby</ThemedText>
+          <Animated.View entering={FadeIn.duration(300).delay(100)} style={styles.cameraWrapper}>
+            <GestureHandlerRootView style={styles.cameraGestureWrapper}>
+              <GestureDetector gesture={composedGesture}>
+                <View style={styles.cameraContainer}>
+                  <CameraView
+                    ref={cameraRef}
+                    style={styles.camera}
+                    facing={facing}
+                    zoom={zoom.value}
+                    mode="video"
+                  />
+                  {!isRecording ? (
+                    <View style={styles.cameraOverlay}>
+                      <Feather name="video-off" size={32} color={Colors.dark.textTertiary} />
+                      <ThemedText style={styles.overlayText}>Camera on standby</ThemedText>
+                    </View>
+                  ) : null}
+                  {isVideoRecording ? (
+                    <View style={styles.videoRecordingOverlay}>
+                      <View style={styles.recordingDot} />
+                      <ThemedText style={styles.recordingText}>REC</ThemedText>
+                    </View>
+                  ) : null}
+                  {isCapturing ? (
+                    <View style={styles.capturingOverlay}>
+                      <ActivityIndicator size="small" color={Colors.dark.text} />
+                    </View>
+                  ) : null}
+                  
+                  <View style={styles.cameraControls}>
+                    <Pressable onPress={handleToggleCamera} style={styles.cameraControlButton}>
+                      <Feather name="refresh-cw" size={18} color={Colors.dark.text} />
+                    </Pressable>
                   </View>
-                ) : null}
-                {isVideoRecording ? (
-                  <View style={styles.videoRecordingOverlay}>
-                    <View style={styles.recordingDot} />
-                    <ThemedText style={styles.recordingText}>Recording Video</ThemedText>
+                  
+                  <View style={styles.zoomIndicator}>
+                    <ThemedText style={styles.zoomText}>
+                      {(1 + zoom.value * 4).toFixed(1)}x
+                    </ThemedText>
                   </View>
-                ) : null}
-                {isAnalyzing ? (
-                  <View style={styles.analyzingOverlay}>
-                    <Feather name="cpu" size={24} color={Colors.dark.accent} />
-                    <ThemedText style={styles.analyzingText}>Analyzing with AI...</ThemedText>
-                  </View>
-                ) : null}
-                
-                <View style={styles.cameraControls}>
-                  <Pressable onPress={handleToggleCamera} style={styles.cameraControlButton}>
-                    <Feather name="refresh-cw" size={20} color={Colors.dark.text} />
-                  </Pressable>
                 </View>
-                
-                <View style={styles.zoomIndicator}>
-                  <ThemedText style={styles.zoomText}>
-                    {(1 + zoom.value * 4).toFixed(1)}x
-                  </ThemedText>
-                </View>
-              </Animated.View>
-            </GestureDetector>
-          </GestureHandlerRootView>
+              </GestureDetector>
+            </GestureHandlerRootView>
+          </Animated.View>
         ) : (
           <View style={styles.permissionContainer}>
+            <Feather name="camera-off" size={48} color={Colors.dark.textTertiary} />
             <ThemedText style={styles.permissionText}>
               Camera permission is required for evidence capture
             </ThemedText>
@@ -574,80 +628,111 @@ export default function InvestigationScreen() {
                       console.error("Failed to open settings:", error);
                     }
                   }}
-                  style={styles.permissionButton}
+                  variant="secondary"
                 >
                   Open Settings
                 </Button>
               ) : null
             ) : (
-              <Button onPress={requestCameraPermission} style={styles.permissionButton}>
+              <Button onPress={requestCameraPermission} variant="primary">
                 Enable Camera
               </Button>
             )}
           </View>
         )}
 
-        <View style={styles.controlsContainer}>
+        <Animated.View entering={FadeIn.duration(300).delay(200)} style={styles.controlsContainer}>
           {!isRecording ? (
-            <Button onPress={handleStartInvestigation} style={styles.startButton} testID="button-start-investigation">
+            <Button 
+              onPress={handleStartInvestigation} 
+              variant="primary"
+              testID="button-start-investigation"
+            >
               Start Investigation
             </Button>
           ) : (
             <>
-              <View style={styles.evidenceControls}>
+              {pendingCount > 0 ? (
+                <View style={styles.pendingBadge}>
+                  <Feather name="clock" size={14} color={Colors.dark.warning} />
+                  <ThemedText style={styles.pendingText}>
+                    {pendingCount} photo{pendingCount > 1 ? "s" : ""} pending AI analysis
+                  </ThemedText>
+                </View>
+              ) : null}
+              
+              <View style={styles.evidenceButtonsRow}>
                 <EvidenceButton
                   icon="file-text"
-                  label="Add Note"
+                  label="Note"
                   onPress={handleAddNote}
                   testID="button-add-note"
                 />
                 <EvidenceButton
                   icon="camera"
-                  label="Capture Photo"
+                  label="Photo"
                   onPress={handleCapturePhoto}
                   variant="primary"
+                  disabled={isCapturing}
                   testID="button-capture-photo"
                 />
                 <EvidenceButton
                   icon="mic"
-                  label="Record Audio"
+                  label="Audio"
                   onPress={handleRecordAudio}
                   testID="button-record-audio"
                 />
               </View>
               
-              <View style={styles.videoControls}>
-                {!isVideoRecording ? (
-                  <Button onPress={handleStartVideoRecording} style={styles.videoButton}>
-                    <View style={styles.videoButtonContent}>
-                      <Feather name="video" size={18} color={Colors.dark.buttonText} />
-                      <ThemedText style={styles.videoButtonText}>Start Video Recording</ThemedText>
-                    </View>
-                  </Button>
-                ) : (
-                  <Button onPress={handleStopVideoRecording} style={[styles.videoButton, styles.videoStopButton]}>
-                    <View style={styles.videoButtonContent}>
-                      <Feather name="square" size={18} color={Colors.dark.buttonText} />
-                      <ThemedText style={styles.videoButtonText}>Stop Video Recording</ThemedText>
-                    </View>
-                  </Button>
-                )}
-              </View>
+              {Platform.OS !== "web" ? (
+                <View style={styles.videoControlsRow}>
+                  {!isVideoRecording ? (
+                    <Pressable 
+                      onPress={handleStartVideoRecording} 
+                      style={styles.videoButton}
+                    >
+                      <Feather name="video" size={18} color={Colors.dark.text} />
+                      <ThemedText style={styles.videoButtonText}>Record Video</ThemedText>
+                    </Pressable>
+                  ) : (
+                    <Pressable 
+                      onPress={handleStopVideoRecording} 
+                      style={[styles.videoButton, styles.videoStopButton]}
+                    >
+                      <View style={styles.stopIcon} />
+                      <ThemedText style={styles.videoButtonText}>Stop Recording</ThemedText>
+                    </Pressable>
+                  )}
+                </View>
+              ) : null}
               
-              <Button
+              <Pressable
                 onPress={handleStopInvestigation}
-                style={[styles.stopButton, { backgroundColor: Colors.dark.error }]}
+                style={styles.stopInvestigationButton}
                 testID="button-stop-investigation"
               >
-                Stop Investigation
-              </Button>
+                <Feather name="square" size={16} color={Colors.dark.error} />
+                <ThemedText style={styles.stopInvestigationText}>Stop Investigation</ThemedText>
+              </Pressable>
             </>
           )}
-        </View>
+        </Animated.View>
+
+        {isProcessingAnalysis ? (
+          <View style={styles.processingCard}>
+            <ActivityIndicator size="small" color={Colors.dark.accent} />
+            <ThemedText style={styles.processingText}>Processing AI analysis...</ThemedText>
+          </View>
+        ) : null}
 
         {recentEvidence.length > 0 ? (
-          <View style={styles.recentSection}>
-            <ThemedText style={styles.sectionTitle}>Recently Captured</ThemedText>
+          <Animated.View entering={FadeIn.duration(300).delay(300)} style={styles.recentSection}>
+            <View style={styles.sectionHeader}>
+              <ThemedText style={styles.sectionTitle}>Recent Evidence</ThemedText>
+              <View style={styles.countBadge}>
+                <ThemedText style={styles.countText}>{recentEvidence.length}</ThemedText>
+              </View>
+            </View>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -662,6 +747,13 @@ export default function InvestigationScreen() {
                 />
               ))}
             </ScrollView>
+          </Animated.View>
+        ) : isRecording ? (
+          <View style={styles.noEvidenceHint}>
+            <Feather name="info" size={16} color={Colors.dark.textTertiary} />
+            <ThemedText style={styles.noEvidenceText}>
+              Use the buttons above to capture evidence
+            </ThemedText>
           </View>
         ) : null}
       </ScrollView>
@@ -678,18 +770,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.screenPadding,
+    gap: Spacing.lg,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
   },
   loadingText: {
-    textAlign: "center",
-    marginTop: 100,
+    fontSize: 14,
     color: Colors.dark.textSecondary,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: Spacing.lg,
   },
   caseInfo: {
     flex: 1,
@@ -699,33 +796,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: Colors.dark.accent,
+    letterSpacing: 0.5,
   },
   caseTitle: {
     fontSize: 20,
     fontWeight: "700",
     color: Colors.dark.text,
+    marginTop: 2,
   },
   cameraWrapper: {
-    marginBottom: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    ...Shadows.md,
+  },
+  cameraGestureWrapper: {
+    flex: 1,
   },
   cameraContainer: {
-    height: 250,
-    borderRadius: BorderRadius.md,
-    overflow: "hidden",
+    height: 220,
     backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
   },
   camera: {
     flex: 1,
   },
   cameraOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: "rgba(0,0,0,0.75)",
     alignItems: "center",
     justifyContent: "center",
+    gap: Spacing.sm,
   },
   overlayText: {
     fontSize: 14,
-    color: Colors.dark.textSecondary,
+    color: Colors.dark.textTertiary,
   },
   videoRecordingOverlay: {
     position: "absolute",
@@ -733,11 +838,11 @@ const styles = StyleSheet.create({
     left: Spacing.md,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 0, 0, 0.8)",
-    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.dark.error,
+    paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   recordingDot: {
     width: 8,
@@ -746,34 +851,25 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.text,
   },
   recordingText: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontWeight: "700",
     color: Colors.dark.text,
+    letterSpacing: 1,
   },
-  analyzingOverlay: {
+  capturingOverlay: {
     position: "absolute",
-    bottom: Spacing.md,
-    left: Spacing.md,
-    right: Spacing.md,
-    flexDirection: "row",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(255,255,255,0.3)",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.sm,
-    gap: Spacing.sm,
     justifyContent: "center",
-  },
-  analyzingText: {
-    fontSize: 12,
-    color: Colors.dark.accent,
-    fontWeight: "500",
   },
   cameraControls: {
     position: "absolute",
     top: Spacing.md,
     right: Spacing.md,
-    gap: Spacing.sm,
   },
   cameraControlButton: {
     width: 36,
@@ -790,7 +886,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.6)",
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.xs,
+    borderRadius: BorderRadius.sm,
   },
   zoomText: {
     fontSize: 12,
@@ -798,68 +894,141 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   permissionContainer: {
-    height: 200,
-    borderRadius: BorderRadius.md,
     backgroundColor: Colors.dark.backgroundSecondary,
-    alignItems: "center",
-    justifyContent: "center",
+    borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
-    marginBottom: Spacing.lg,
+    alignItems: "center",
     gap: Spacing.lg,
   },
   permissionText: {
     fontSize: 14,
     color: Colors.dark.textSecondary,
     textAlign: "center",
-  },
-  permissionButton: {
-    paddingHorizontal: Spacing["2xl"],
+    lineHeight: 20,
   },
   controlsContainer: {
-    gap: Spacing.lg,
-    marginBottom: Spacing.xl,
+    gap: Spacing.md,
   },
-  startButton: {
-    backgroundColor: Colors.dark.success,
-  },
-  evidenceControls: {
+  pendingBadge: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    paddingVertical: Spacing.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    backgroundColor: "rgba(255, 167, 38, 0.1)",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 167, 38, 0.3)",
   },
-  videoControls: {
-    gap: Spacing.sm,
+  pendingText: {
+    fontSize: 13,
+    color: Colors.dark.warning,
+    fontWeight: "500",
+  },
+  evidenceButtonsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: Spacing.xl,
+    paddingVertical: Spacing.md,
+  },
+  videoControlsRow: {
+    alignItems: "center",
   },
   videoButton: {
-    backgroundColor: Colors.dark.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
   },
   videoStopButton: {
     backgroundColor: Colors.dark.error,
+    borderColor: Colors.dark.error,
   },
-  videoButtonContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
+  stopIcon: {
+    width: 14,
+    height: 14,
+    backgroundColor: Colors.dark.text,
+    borderRadius: 2,
   },
   videoButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
-    color: Colors.dark.buttonText,
+    color: Colors.dark.text,
   },
-  stopButton: {
+  stopInvestigationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.error,
+    borderRadius: BorderRadius.md,
     marginTop: Spacing.sm,
   },
+  stopInvestigationText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.error,
+  },
+  processingCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  processingText: {
+    fontSize: 13,
+    color: Colors.dark.accent,
+    fontWeight: "500",
+  },
   recentSection: {
-    marginTop: Spacing.lg,
+    gap: Spacing.md,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: Colors.dark.text,
-    marginBottom: Spacing.md,
+  },
+  countBadge: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
+  countText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
   },
   recentList: {
     gap: Spacing.md,
-    paddingRight: Spacing.lg,
+    paddingRight: Spacing.md,
+  },
+  noEvidenceHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
+  },
+  noEvidenceText: {
+    fontSize: 13,
+    color: Colors.dark.textTertiary,
   },
 });
