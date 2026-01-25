@@ -106,6 +106,11 @@ export async function getEvidence(caseId: string): Promise<Evidence[]> {
   );
 }
 
+export async function getEvidenceByType(caseId: string, type: Evidence["type"]): Promise<Evidence[]> {
+  const allEvidence = await getEvidence(caseId);
+  return allEvidence.filter((e) => e.type === type);
+}
+
 export async function addEvidence(evidence: Omit<Evidence, "id">): Promise<Evidence> {
   const allEvidence = await getAllEvidence();
   const newEvidence: Evidence = {
@@ -121,6 +126,15 @@ export async function addEvidence(evidence: Omit<Evidence, "id">): Promise<Evide
   }
   
   return newEvidence;
+}
+
+export async function updateEvidence(id: string, updates: Partial<Evidence>): Promise<Evidence | null> {
+  const allEvidence = await getAllEvidence();
+  const index = allEvidence.findIndex((e) => e.id === id);
+  if (index === -1) return null;
+  allEvidence[index] = { ...allEvidence[index], ...updates };
+  await AsyncStorage.setItem(EVIDENCE_KEY, JSON.stringify(allEvidence));
+  return allEvidence[index];
 }
 
 export async function getActivityLog(caseId: string): Promise<ActivityLog[]> {
@@ -162,6 +176,11 @@ export async function getReports(): Promise<Report[]> {
   }
 }
 
+export async function getReport(id: string): Promise<Report | null> {
+  const reports = await getReports();
+  return reports.find((r) => r.id === id) || null;
+}
+
 export async function createReport(caseData: Case): Promise<Report> {
   const reports = await getReports();
   const evidence = await getEvidence(caseData.id);
@@ -176,6 +195,15 @@ export async function createReport(caseData: Case): Promise<Report> {
   reports.unshift(newReport);
   await AsyncStorage.setItem(REPORTS_KEY, JSON.stringify(reports));
   return newReport;
+}
+
+export async function updateReport(id: string, updates: Partial<Report>): Promise<Report | null> {
+  const reports = await getReports();
+  const index = reports.findIndex((r) => r.id === id);
+  if (index === -1) return null;
+  reports[index] = { ...reports[index], ...updates };
+  await AsyncStorage.setItem(REPORTS_KEY, JSON.stringify(reports));
+  return reports[index];
 }
 
 export async function getProfile(): Promise<OfficerProfile> {

@@ -13,16 +13,20 @@ export interface Case {
   thumbnail?: string;
 }
 
+export type EvidenceType = "photo" | "video" | "audio" | "note";
+
 export interface Evidence {
   id: string;
   caseId: string;
-  type: "photo" | "audio" | "note";
+  type: EvidenceType;
   uri?: string;
   content?: string;
   timestamp: string;
   latitude?: number;
   longitude?: number;
+  duration?: number;
   detectedObjects?: DetectedObject[];
+  aiAnalysis?: string;
 }
 
 export interface DetectedObject {
@@ -47,6 +51,7 @@ export interface Report {
   generatedAt: string;
   evidenceCount: number;
   status: "generated" | "exported";
+  pdfUri?: string;
 }
 
 export interface OfficerProfile {

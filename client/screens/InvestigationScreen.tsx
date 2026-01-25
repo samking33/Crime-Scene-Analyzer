@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { View, StyleSheet, ScrollView, Alert, Platform } from "react-native";
+import { View, StyleSheet, ScrollView, Platform, Pressable, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -8,6 +8,19 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
+import * as FileSystem from "expo-file-system";
+import { Feather } from "@expo/vector-icons";
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+} from "react-native-gesture-handler";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  runOnJS,
+} from "react-native-reanimated";
 
 import { EmptyState } from "@/components/EmptyState";
 import { RecordingIndicator } from "@/components/RecordingIndicator";
@@ -16,7 +29,8 @@ import { EvidenceCard } from "@/components/EvidenceCard";
 import { Button } from "@/components/Button";
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
-import { getActiveCase, getCase, getEvidence, addEvidence, setActiveCase, updateCase, logActivity, getProfile } from "@/lib/storage";
+import { getActiveCase, getCase, getEvidence, addEvidence, setActiveCase, updateCase, logActivity, getProfile, updateEvidence } from "@/lib/storage";
+import { analyzeImage } from "@/lib/ai";
 import type { Case, Evidence } from "@/types/case";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -31,15 +45,22 @@ export default function InvestigationScreen() {
   const [activeCase, setActiveCaseData] = useState<Case | null>(null);
   const [recentEvidence, setRecentEvidence] = useState<Evidence[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [isVideoRecording, setIsVideoRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState("00:00:00");
   const [isLoading, setIsLoading] = useState(true);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [facing, setFacing] = useState<"front" | "back">("back");
   
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [locationPermission, requestLocationPermission] = Location.useForegroundPermissions();
+  const [micPermission, setMicPermission] = useState(false);
   
   const cameraRef = useRef<CameraView>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
+
+  const zoom = useSharedValue(0);
+  const savedZoom = useSharedValue(0);
 
   const loadActiveCase = useCallback(async () => {
     try {
@@ -98,6 +119,35 @@ export default function InvestigationScreen() {
     };
   }, [isRecording]);
 
+  const triggerHaptic = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const pinchGesture = Gesture.Pinch()
+    .onUpdate((e) => {
+      const newZoom = savedZoom.value + (e.scale - 1) * 0.5;
+      zoom.value = Math.max(0, Math.min(1, newZoom));
+    })
+    .onEnd(() => {
+      savedZoom.value = zoom.value;
+      runOnJS(triggerHaptic)();
+    });
+
+  const doubleTapGesture = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd(() => {
+      if (zoom.value > 0) {
+        zoom.value = withSpring(0);
+        savedZoom.value = 0;
+      } else {
+        zoom.value = withSpring(0.5);
+        savedZoom.value = 0.5;
+      }
+      runOnJS(triggerHaptic)();
+    });
+
+  const composedGesture = Gesture.Simultaneous(pinchGesture, doubleTapGesture);
+
   const handleStartInvestigation = async () => {
     if (!activeCase) return;
     
@@ -120,6 +170,10 @@ export default function InvestigationScreen() {
 
   const handleStopInvestigation = async () => {
     if (!activeCase) return;
+    
+    if (isVideoRecording) {
+      await handleStopVideoRecording();
+    }
     
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     setIsRecording(false);
@@ -153,13 +207,16 @@ export default function InvestigationScreen() {
     
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      const photo = await cameraRef.current.takePictureAsync();
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.9,
+        base64: true,
+      });
       if (!photo) return;
       
       const location = await getCurrentLocation();
       const profile = await getProfile();
       
-      await addEvidence({
+      const newEvidence = await addEvidence({
         caseId: activeCase.id,
         type: "photo",
         uri: photo.uri,
@@ -175,10 +232,81 @@ export default function InvestigationScreen() {
       
       const updatedCase = await getCase(activeCase.id);
       if (updatedCase) setActiveCaseData(updatedCase);
+
+      if (photo.base64) {
+        setIsAnalyzing(true);
+        try {
+          const analysis = await analyzeImage(photo.base64);
+          if (analysis) {
+            await updateEvidence(newEvidence.id, { aiAnalysis: analysis });
+            const updatedEvidence = await getEvidence(activeCase.id);
+            setRecentEvidence(updatedEvidence.slice(0, 5));
+          }
+        } catch (error) {
+          console.error("AI analysis failed:", error);
+        } finally {
+          setIsAnalyzing(false);
+        }
+      }
       
     } catch (error) {
       console.error("Failed to capture photo:", error);
     }
+  };
+
+  const handleStartVideoRecording = async () => {
+    if (!activeCase || !cameraRef.current || isVideoRecording) return;
+    
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      setIsVideoRecording(true);
+      
+      const video = await cameraRef.current.recordAsync({
+        maxDuration: 300,
+      });
+      
+      if (video) {
+        const location = await getCurrentLocation();
+        const profile = await getProfile();
+        
+        await addEvidence({
+          caseId: activeCase.id,
+          type: "video",
+          uri: video.uri,
+          timestamp: new Date().toISOString(),
+          latitude: location?.latitude,
+          longitude: location?.longitude,
+        });
+        
+        await logActivity(activeCase.id, "Video recorded", profile.name, location ? "GPS tagged" : "No GPS");
+        
+        const evidence = await getEvidence(activeCase.id);
+        setRecentEvidence(evidence.slice(0, 5));
+        
+        const updatedCase = await getCase(activeCase.id);
+        if (updatedCase) setActiveCaseData(updatedCase);
+      }
+    } catch (error) {
+      console.error("Failed to record video:", error);
+    } finally {
+      setIsVideoRecording(false);
+    }
+  };
+
+  const handleStopVideoRecording = async () => {
+    if (!cameraRef.current || !isVideoRecording) return;
+    
+    try {
+      await cameraRef.current.stopRecording();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error("Failed to stop recording:", error);
+    }
+  };
+
+  const handleToggleCamera = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setFacing(facing === "back" ? "front" : "back");
   };
 
   const handleAddNote = () => {
@@ -193,6 +321,10 @@ export default function InvestigationScreen() {
 
   const handleSelectCase = () => {
     navigation.navigate("Main", { screen: "CasesTab" });
+  };
+
+  const handleEvidencePress = (evidence: Evidence) => {
+    navigation.navigate("EvidenceViewer", { evidence });
   };
 
   if (isLoading) {
@@ -244,32 +376,79 @@ export default function InvestigationScreen() {
         </View>
 
         {permissionsGranted ? (
-          <View style={styles.cameraContainer}>
-            <CameraView
-              ref={cameraRef}
-              style={styles.camera}
-              facing="back"
-            />
-            {!isRecording ? (
-              <View style={styles.cameraOverlay}>
-                <ThemedText style={styles.overlayText}>Camera on standby</ThemedText>
-              </View>
-            ) : null}
-          </View>
+          <GestureHandlerRootView style={styles.cameraWrapper}>
+            <GestureDetector gesture={composedGesture}>
+              <Animated.View style={styles.cameraContainer}>
+                <CameraView
+                  ref={cameraRef}
+                  style={styles.camera}
+                  facing={facing}
+                  zoom={zoom.value}
+                  mode="video"
+                />
+                {!isRecording ? (
+                  <View style={styles.cameraOverlay}>
+                    <ThemedText style={styles.overlayText}>Camera on standby</ThemedText>
+                  </View>
+                ) : null}
+                {isVideoRecording ? (
+                  <View style={styles.videoRecordingOverlay}>
+                    <View style={styles.recordingDot} />
+                    <ThemedText style={styles.recordingText}>Recording Video</ThemedText>
+                  </View>
+                ) : null}
+                {isAnalyzing ? (
+                  <View style={styles.analyzingOverlay}>
+                    <Feather name="cpu" size={24} color={Colors.dark.accent} />
+                    <ThemedText style={styles.analyzingText}>Analyzing with AI...</ThemedText>
+                  </View>
+                ) : null}
+                
+                <View style={styles.cameraControls}>
+                  <Pressable onPress={handleToggleCamera} style={styles.cameraControlButton}>
+                    <Feather name="refresh-cw" size={20} color={Colors.dark.text} />
+                  </Pressable>
+                </View>
+                
+                <View style={styles.zoomIndicator}>
+                  <ThemedText style={styles.zoomText}>
+                    {(1 + zoom.value * 4).toFixed(1)}x
+                  </ThemedText>
+                </View>
+              </Animated.View>
+            </GestureDetector>
+          </GestureHandlerRootView>
         ) : (
           <View style={styles.permissionContainer}>
             <ThemedText style={styles.permissionText}>
               Camera permission is required for evidence capture
             </ThemedText>
-            <Button onPress={requestCameraPermission} style={styles.permissionButton}>
-              Enable Camera
-            </Button>
+            {cameraPermission?.status === "denied" && !cameraPermission.canAskAgain ? (
+              Platform.OS !== "web" ? (
+                <Button
+                  onPress={async () => {
+                    try {
+                      await Linking.openSettings();
+                    } catch (error) {
+                      console.error("Failed to open settings:", error);
+                    }
+                  }}
+                  style={styles.permissionButton}
+                >
+                  Open Settings
+                </Button>
+              ) : null
+            ) : (
+              <Button onPress={requestCameraPermission} style={styles.permissionButton}>
+                Enable Camera
+              </Button>
+            )}
           </View>
         )}
 
         <View style={styles.controlsContainer}>
           {!isRecording ? (
-            <Button onPress={handleStartInvestigation} style={styles.startButton}>
+            <Button onPress={handleStartInvestigation} style={styles.startButton} testID="button-start-investigation">
               Start Investigation
             </Button>
           ) : (
@@ -279,22 +458,45 @@ export default function InvestigationScreen() {
                   icon="file-text"
                   label="Add Note"
                   onPress={handleAddNote}
+                  testID="button-add-note"
                 />
                 <EvidenceButton
                   icon="camera"
                   label="Capture Photo"
                   onPress={handleCapturePhoto}
                   variant="primary"
+                  testID="button-capture-photo"
                 />
                 <EvidenceButton
                   icon="mic"
                   label="Record Audio"
                   onPress={handleRecordAudio}
+                  testID="button-record-audio"
                 />
               </View>
+              
+              <View style={styles.videoControls}>
+                {!isVideoRecording ? (
+                  <Button onPress={handleStartVideoRecording} style={styles.videoButton}>
+                    <View style={styles.videoButtonContent}>
+                      <Feather name="video" size={18} color={Colors.dark.buttonText} />
+                      <ThemedText style={styles.videoButtonText}>Start Video Recording</ThemedText>
+                    </View>
+                  </Button>
+                ) : (
+                  <Button onPress={handleStopVideoRecording} style={[styles.videoButton, styles.videoStopButton]}>
+                    <View style={styles.videoButtonContent}>
+                      <Feather name="square" size={18} color={Colors.dark.buttonText} />
+                      <ThemedText style={styles.videoButtonText}>Stop Video Recording</ThemedText>
+                    </View>
+                  </Button>
+                )}
+              </View>
+              
               <Button
                 onPress={handleStopInvestigation}
                 style={[styles.stopButton, { backgroundColor: Colors.dark.error }]}
+                testID="button-stop-investigation"
               >
                 Stop Investigation
               </Button>
@@ -311,7 +513,12 @@ export default function InvestigationScreen() {
               contentContainerStyle={styles.recentList}
             >
               {recentEvidence.map((evidence) => (
-                <EvidenceCard key={evidence.id} evidence={evidence} compact />
+                <EvidenceCard
+                  key={evidence.id}
+                  evidence={evidence}
+                  compact
+                  onPress={() => handleEvidencePress(evidence)}
+                />
               ))}
             </ScrollView>
           </View>
@@ -357,11 +564,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.text,
   },
+  cameraWrapper: {
+    marginBottom: Spacing.lg,
+  },
   cameraContainer: {
-    height: 200,
+    height: 250,
     borderRadius: BorderRadius.md,
     overflow: "hidden",
-    marginBottom: Spacing.lg,
     backgroundColor: Colors.dark.backgroundSecondary,
   },
   camera: {
@@ -376,6 +585,76 @@ const styles = StyleSheet.create({
   overlayText: {
     fontSize: 14,
     color: Colors.dark.textSecondary,
+  },
+  videoRecordingOverlay: {
+    position: "absolute",
+    top: Spacing.md,
+    left: Spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 0, 0, 0.8)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    gap: Spacing.sm,
+  },
+  recordingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.dark.text,
+  },
+  recordingText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  analyzingOverlay: {
+    position: "absolute",
+    bottom: Spacing.md,
+    left: Spacing.md,
+    right: Spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    gap: Spacing.sm,
+    justifyContent: "center",
+  },
+  analyzingText: {
+    fontSize: 12,
+    color: Colors.dark.accent,
+    fontWeight: "500",
+  },
+  cameraControls: {
+    position: "absolute",
+    top: Spacing.md,
+    right: Spacing.md,
+    gap: Spacing.sm,
+  },
+  cameraControlButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  zoomIndicator: {
+    position: "absolute",
+    bottom: Spacing.md,
+    right: Spacing.md,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.xs,
+  },
+  zoomText: {
+    fontSize: 12,
+    color: Colors.dark.text,
+    fontWeight: "600",
   },
   permissionContainer: {
     height: 200,
@@ -406,6 +685,25 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-around",
     paddingVertical: Spacing.lg,
+  },
+  videoControls: {
+    gap: Spacing.sm,
+  },
+  videoButton: {
+    backgroundColor: Colors.dark.primary,
+  },
+  videoStopButton: {
+    backgroundColor: Colors.dark.error,
+  },
+  videoButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  videoButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.dark.buttonText,
   },
   stopButton: {
     marginTop: Spacing.sm,
