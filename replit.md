@@ -110,6 +110,47 @@ When a photo is captured, the AI automatically:
 - Frontend runs on port 8081 (Expo)
 - Backend runs on port 5000 (Express)
 
+## Build Configuration (EAS)
+The app uses Expo Application Services (EAS) for building APK/IPA files.
+
+**Important**: When making changes to the app that affect native functionality, update the following:
+- `app.json` - App metadata, permissions, plugins
+- `eas.json` - Build profiles and settings
+
+**Build Profiles:**
+- `development` - For testing with development client (APK for Android, simulator for iOS)
+- `preview` - Internal distribution builds for testing on real devices
+- `production` - App Store/Play Store release builds
+
+**Build Commands:**
+```bash
+# Install EAS CLI
+npm install -g eas-cli
+
+# Login to Expo
+eas login
+
+# Build for Android (APK)
+eas build --platform android --profile preview
+
+# Build for iOS (requires Apple Developer account)
+eas build --platform ios --profile preview
+
+# Production builds
+eas build --platform all --profile production
+```
+
+**Native Features Requiring Build Updates:**
+- Camera permissions (expo-camera plugin)
+- Location permissions (expo-location plugin)
+- Audio recording (microphone permission)
+- Any new native modules added
+
+**Case Data Fields for Timeline:**
+- videoRecordingStartTime, videoRecordingEndTime
+- investigationStartTime, investigationEndTime
+- backgroundVideoUri, backgroundVideoDuration
+
 ## Recent Changes (January 2026)
 - Added video recording support with expo-camera recordAsync
 - Implemented interactive camera controls (pinch-to-zoom, tap-to-focus, double-tap toggle)
