@@ -1,0 +1,138 @@
+{
+  "id": "45a72fe2-0af7-41eb-8fa8-3d426328e689",
+  "createdAt": "2026-03-17T11:12:34.647Z",
+  "runtimeVersion": "exposdk:54.0.0",
+  "launchAsset": {
+    "key": "bundle-1773745954647-27086",
+    "contentType": "application/javascript",
+    "url": "https://crime-scene-analyzer-rho.vercel.app/1773745954647-27086/_expo/static/js/android/bundle.js"
+  },
+  "assets": [],
+  "metadata": {},
+  "extra": {
+    "eas": {},
+    "expoClient": {
+      "name": "Crime Scene Investigator",
+      "slug": "crime-scene-investigator",
+      "version": "1.0.0",
+      "orientation": "portrait",
+      "icon": "./assets/images/icon.png",
+      "scheme": "crimescene",
+      "userInterfaceStyle": "dark",
+      "newArchEnabled": true,
+      "ios": {
+        "supportsTablet": true,
+        "bundleIdentifier": "com.crimescene.investigator",
+        "infoPlist": {
+          "NSCameraUsageDescription": "This app needs camera access to capture evidence photos and video.",
+          "NSMicrophoneUsageDescription": "This app needs microphone access to record audio notes and video with sound.",
+          "NSLocationWhenInUseUsageDescription": "This app needs location access to GPS tag evidence."
+        }
+      },
+      "android": {
+        "adaptiveIcon": {
+          "backgroundColor": "#0A0E14",
+          "foregroundImage": "./assets/images/icon.png",
+          "foregroundImageUrl": "http://127.0.0.1:8081/assets/./assets/images/icon.png"
+        },
+        "edgeToEdgeEnabled": true,
+        "predictiveBackGestureEnabled": false,
+        "package": "com.crimescene.investigator",
+        "permissions": [
+          "CAMERA",
+          "RECORD_AUDIO",
+          "ACCESS_FINE_LOCATION",
+          "ACCESS_COARSE_LOCATION",
+          "android.permission.CAMERA",
+          "android.permission.RECORD_AUDIO",
+          "android.permission.ACCESS_COARSE_LOCATION",
+          "android.permission.ACCESS_FINE_LOCATION"
+        ]
+      },
+      "web": {
+        "output": "single",
+        "favicon": "./assets/images/icon.png"
+      },
+      "plugins": [
+        [
+          "expo-splash-screen",
+          {
+            "image": "./assets/images/splash-icon.png",
+            "imageWidth": 200,
+            "resizeMode": "contain",
+            "backgroundColor": "#0A0E14",
+            "dark": {
+              "backgroundColor": "#0A0E14"
+            }
+          }
+        ],
+        "expo-web-browser",
+        [
+          "expo-camera",
+          {
+            "cameraPermission": "Allow Crime Scene Investigator to access your camera for evidence capture.",
+            "microphonePermission": "Allow Crime Scene Investigator to access your microphone for audio notes.",
+            "recordAudioAndroid": true
+          }
+        ],
+        [
+          "expo-location",
+          {
+            "locationAlwaysAndWhenInUsePermission": "Allow Crime Scene Investigator to access your location for evidence GPS tagging."
+          }
+        ]
+      ],
+      "experiments": {
+        "reactCompiler": true
+      },
+      "_internal": {
+        "isDebug": false,
+        "projectRoot": "/Users/samking33/Downloads/Crime-Scene-Analyzer",
+        "dynamicConfigPath": {},
+        "staticConfigPath": "/Users/samking33/Downloads/Crime-Scene-Analyzer/app.json",
+        "packageJsonPath": "/Users/samking33/Downloads/Crime-Scene-Analyzer/package.json",
+        "pluginHistory": {
+          "expo-splash-screen": {
+            "name": "expo-splash-screen",
+            "version": "31.0.11"
+          },
+          "expo-web-browser": {
+            "name": "expo-web-browser",
+            "version": "15.0.9"
+          },
+          "expo-camera": {
+            "name": "expo-camera",
+            "version": "17.0.10"
+          },
+          "expo-location": {
+            "name": "expo-location",
+            "version": "19.0.8"
+          }
+        }
+      },
+      "sdkVersion": "54.0.0",
+      "platforms": [
+        "ios",
+        "android",
+        "web"
+      ],
+      "androidStatusBar": {
+        "backgroundColor": "#0A0E14"
+      },
+      "iconUrl": "http://127.0.0.1:8081/assets/./assets/images/icon.png",
+      "hostUri": "crime-scene-analyzer-rho.vercel.app/android"
+    },
+    "expoGo": {
+      "debuggerHost": "crime-scene-analyzer-rho.vercel.app/android",
+      "developer": {
+        "tool": "expo-cli",
+        "projectRoot": "/Users/samking33/Downloads/Crime-Scene-Analyzer"
+      },
+      "packagerOpts": {
+        "dev": false
+      },
+      "mainModuleName": "client/index"
+    },
+    "scopeKey": "@anonymous/crime-scene-investigator-e9577aa7-0b5f-4444-b3bc-e4f6f45a7f42"
+  }
+}

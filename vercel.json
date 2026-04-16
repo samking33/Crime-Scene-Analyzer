@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 30
+    }
+  },
+  "routes": [
+    { "src": "/assets/(.*)", "dest": "/assets/$1" },
+    { "src": "/static-build/(.*)", "dest": "/static-build/$1" },
+    { "src": "/(.*)", "dest": "/api/index.ts" }
+  ]
+}

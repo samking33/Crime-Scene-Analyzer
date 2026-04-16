@@ -70,7 +70,7 @@ export function CaseCard({ caseData, onPress, index = 0 }: CaseCardProps) {
       testID={`card-case-${caseData.id}`}
     >
       <View style={[styles.accentBar, { backgroundColor: getStatusColor() }]} />
-      
+
       <View style={styles.cardContent}>
         <View style={styles.header}>
           <View style={styles.iconContainer}>
@@ -80,7 +80,7 @@ export function CaseCard({ caseData, onPress, index = 0 }: CaseCardProps) {
               <Feather name="folder" size={24} color={Colors.dark.primary} />
             )}
           </View>
-          
+
           <View style={styles.headerText}>
             <ThemedText style={styles.caseId} testID={`text-case-id-${caseData.id}`}>
               {caseData.caseId}
@@ -89,14 +89,14 @@ export function CaseCard({ caseData, onPress, index = 0 }: CaseCardProps) {
               <ThemedText style={styles.timeText}>{timeAgo}</ThemedText>
             </View>
           </View>
-          
+
           <StatusBadge status={caseData.status} size="sm" />
         </View>
-        
+
         <ThemedText style={styles.title} numberOfLines={2} testID={`text-case-title-${caseData.id}`}>
           {caseData.title}
         </ThemedText>
-        
+
         <View style={styles.metaRow}>
           <View style={styles.metaItem}>
             <Feather name="map-pin" size={12} color={Colors.dark.textTertiary} />
@@ -112,7 +112,7 @@ export function CaseCard({ caseData, onPress, index = 0 }: CaseCardProps) {
             </ThemedText>
           </View>
         </View>
-        
+
         <View style={styles.footer}>
           <View style={styles.statsRow}>
             <View style={styles.statBadge}>
@@ -122,7 +122,7 @@ export function CaseCard({ caseData, onPress, index = 0 }: CaseCardProps) {
               </ThemedText>
             </View>
           </View>
-          
+
           <Pressable style={styles.viewButton}>
             <ThemedText style={styles.viewButtonText}>View</ThemedText>
             <Feather name="chevron-right" size={14} color={Colors.dark.primary} />
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: BorderRadius.lg,
-    backgroundColor: "rgba(41, 98, 255, 0.15)",
+    backgroundColor: "rgba(139, 92, 246, 0.15)",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: "rgba(0, 176, 255, 0.1)",
+    backgroundColor: "rgba(16, 185, 129, 0.1)",
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: "rgba(41, 98, 255, 0.1)",
+    backgroundColor: "rgba(139, 92, 246, 0.1)",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,

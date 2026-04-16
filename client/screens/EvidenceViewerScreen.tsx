@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from "react";
-import { View, StyleSheet, Dimensions, Pressable, Platform, ScrollView, ActivityIndicator } from "react-native";
+import React, { useState, useCallback, useMemo } from "react";
+import { View, StyleSheet, Dimensions, Pressable, Platform, ScrollView, ActivityIndicator, LayoutChangeEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -59,6 +59,32 @@ const LOCATION_POSITIONS: Record<string, { top: string; left: string }> = {
   "bottom-right": { top: "75%", left: "65%" },
 };
 
+const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+
+const normalizeBoundingBox = (
+  box: { x: number; y: number; width: number; height: number },
+  imageSourceSize: { width: number; height: number } | null,
+) => {
+  let { x, y, width, height } = box;
+
+  if (imageSourceSize && Math.max(x, y, width, height) > 1.5) {
+    x = x / imageSourceSize.width;
+    y = y / imageSourceSize.height;
+    width = width / imageSourceSize.width;
+    height = height / imageSourceSize.height;
+  }
+
+  x = clamp01(x);
+  y = clamp01(y);
+  width = clamp01(width);
+  height = clamp01(height);
+
+  if (x + width > 1) width = 1 - x;
+  if (y + height > 1) height = 1 - y;
+
+  return { x, y, width, height };
+};
+
 export default function EvidenceViewerScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -70,9 +96,11 @@ export default function EvidenceViewerScreen() {
   const [showOverlay, setShowOverlay] = useState(true);
   const [showDetails, setShowDetails] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [showAnnotated, setShowAnnotated] = useState(true);
+  const [showAnnotated, setShowAnnotated] = useState(Boolean(initialEvidence.annotatedImageUri));
   const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [imageLayout, setImageLayout] = useState({ width: SCREEN_WIDTH, height: SCREEN_HEIGHT * 0.5 });
+  const [imageSourceSize, setImageSourceSize] = useState<{ width: number; height: number } | null>(null);
 
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -168,6 +196,9 @@ export default function EvidenceViewerScreen() {
           setEvidence(updatedEvidence);
           if (annotatedImageUri) {
             setShowAnnotated(true);
+          } else {
+            setShowAnnotated(false);
+            setShowOverlay(true);
           }
         }
         
@@ -272,13 +303,82 @@ export default function EvidenceViewerScreen() {
     navigation.goBack();
   };
 
+  const handleImageLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    if (width && height) {
+      setImageLayout({ width, height });
+    }
+  };
+
+  const handleImageLoad = (event: { source?: { width: number; height: number } }) => {
+    const width = event?.source?.width;
+    const height = event?.source?.height;
+    if (width && height) {
+      setImageSourceSize({ width, height });
+    }
+  };
+
+  const imageDisplayRect = useMemo(() => {
+    if (!imageSourceSize) {
+      return {
+        width: imageLayout.width,
+        height: imageLayout.height,
+        offsetX: 0,
+        offsetY: 0,
+      };
+    }
+
+    const scale = Math.min(
+      imageLayout.width / imageSourceSize.width,
+      imageLayout.height / imageSourceSize.height,
+    );
+    const width = imageSourceSize.width * scale;
+    const height = imageSourceSize.height * scale;
+    const offsetX = (imageLayout.width - width) / 2;
+    const offsetY = (imageLayout.height - height) / 2;
+
+    return { width, height, offsetX, offsetY };
+  }, [imageLayout, imageSourceSize]);
+
   const getConfidenceCount = (level: "high" | "medium" | "low") => {
     return evidence.detectedObjects?.filter(obj => obj.confidence === level).length || 0;
   };
 
   const renderObjectOverlay = (obj: DetectedObject, index: number) => {
-    const position = LOCATION_POSITIONS[obj.location] || LOCATION_POSITIONS.center;
     const color = CATEGORY_COLORS[obj.category] || CATEGORY_COLORS.other;
+    const displayRect = imageDisplayRect;
+
+    if (obj.boundingBox && displayRect) {
+      const normalized = normalizeBoundingBox(obj.boundingBox, imageSourceSize);
+      const left = displayRect.offsetX + normalized.x * displayRect.width;
+      const top = displayRect.offsetY + normalized.y * displayRect.height;
+      const width = normalized.width * displayRect.width;
+      const height = normalized.height * displayRect.height;
+
+      return (
+        <View
+          key={obj.id || index}
+          style={[
+            styles.boundingBox,
+            {
+              top,
+              left,
+              width,
+              height,
+              borderColor: color,
+            },
+          ]}
+        >
+          <View style={[styles.objectLabel, { backgroundColor: color }]}>
+            <ThemedText style={styles.objectLabelText} numberOfLines={1}>
+              {obj.label} - {obj.confidence.charAt(0).toUpperCase() + obj.confidence.slice(1)}
+            </ThemedText>
+          </View>
+        </View>
+      );
+    }
+
+    const position = LOCATION_POSITIONS[obj.location] || LOCATION_POSITIONS.center;
     
     return (
       <View
@@ -288,6 +388,8 @@ export default function EvidenceViewerScreen() {
           {
             top: position.top as any,
             left: position.left as any,
+            width: "28%",
+            height: "18%",
             borderColor: color,
           },
         ]}
@@ -353,9 +455,11 @@ export default function EvidenceViewerScreen() {
                 source={{ uri: displayUri }}
                 style={styles.media}
                 contentFit="contain"
+                onLayout={handleImageLayout}
+                onLoad={handleImageLoad}
               />
               {!showAnnotated && showOverlay && evidence.detectedObjects && evidence.detectedObjects.length > 0 ? (
-                <View style={styles.overlayContainer}>
+                <View style={styles.overlayContainer} pointerEvents="none">
                   {evidence.detectedObjects.map((obj, index) => renderObjectOverlay(obj, index))}
                 </View>
               ) : null}
@@ -597,8 +701,6 @@ const styles = StyleSheet.create({
   },
   boundingBox: {
     position: "absolute",
-    width: "28%",
-    height: "18%",
     borderWidth: 2,
     borderRadius: BorderRadius.sm,
     backgroundColor: "rgba(0, 0, 0, 0.2)",

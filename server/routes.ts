@@ -1,12 +1,11 @@
 import type { Express } from "express";
-import { createServer, type Server } from "node:http";
-import OpenAI from "openai";
-import { drawBoundingBoxes } from "./imageAnnotationService";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import {
+  buildGroundingPrompt,
+  detectImageMimeType,
+  groundingDinoDetectObjects,
+  paligemmaSummarizeImage,
+  type GroundingDinoDetection,
+} from "./nvidia";
 
 interface BoundingBox {
   x: number;
@@ -54,14 +53,14 @@ const categoryIdToName: Record<number, DetectedObject["category"]> = {
 
 function categorizeObjectByKeyword(objectName: string): { categoryId: number; category: DetectedObject["category"] } {
   const nameLower = objectName.toLowerCase();
-  
+
   for (const [categoryId, keywords] of Object.entries(categoryKeywords)) {
     const id = parseInt(categoryId);
     if (keywords.some(keyword => nameLower.includes(keyword))) {
       return { categoryId: id, category: categoryIdToName[id] };
     }
   }
-  
+
   return { categoryId: 10, category: "other" };
 }
 
@@ -69,186 +68,183 @@ function generateObjectId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
 }
 
-function parseDetectedObjects(content: string): DetectedObject[] {
-  const objects: DetectedObject[] = [];
-  const lines = content.split('\n').filter(line => line.trim());
-  
-  for (const line of lines) {
-    const match = line.match(/^[-•*]?\s*(.+?):\s*(.+)$/);
-    if (match) {
-      const label = match[1].trim();
-      const details = match[2].trim().toLowerCase();
-      
-      let confidence: "high" | "medium" | "low" = "medium";
-      if (details.includes("high")) confidence = "high";
-      else if (details.includes("low")) confidence = "low";
-      
-      const { categoryId, category } = categorizeObjectByKeyword(label);
-      
-      let location: DetectedObject["location"] = "center";
-      if (details.includes("top-left")) location = "top-left";
-      else if (details.includes("top-right")) location = "top-right";
-      else if (details.includes("top-center") || details.includes("top center")) location = "top-center";
-      else if (details.includes("bottom-left")) location = "bottom-left";
-      else if (details.includes("bottom-right")) location = "bottom-right";
-      else if (details.includes("bottom-center") || details.includes("bottom center")) location = "bottom-center";
-      else if (details.includes("center-left") || details.includes("left")) location = "center-left";
-      else if (details.includes("center-right") || details.includes("right")) location = "center-right";
-      
-      objects.push({
-        id: generateObjectId(),
-        label,
-        confidence,
-        category,
-        categoryId,
-        location,
-        description: match[2].trim(),
-      });
-    }
+function computeLocationFromBox(box: BoundingBox | undefined): DetectedObject["location"] {
+  if (!box) return "center";
+  const centerX = box.x + box.width / 2;
+  const centerY = box.y + box.height / 2;
+
+  if (centerY < 0.33) {
+    if (centerX < 0.33) return "top-left";
+    if (centerX > 0.66) return "top-right";
+    return "top-center";
   }
-  
-  return objects;
+  if (centerY > 0.66) {
+    if (centerX < 0.33) return "bottom-left";
+    if (centerX > 0.66) return "bottom-right";
+    return "bottom-center";
+  }
+  if (centerX < 0.33) return "center-left";
+  if (centerX > 0.66) return "center-right";
+  return "center";
 }
 
-export async function registerRoutes(app: Express): Promise<Server> {
+function mapScoreToConfidence(score: number): "high" | "medium" | "low" {
+  if (score >= 0.8) return "high";
+  if (score >= 0.5) return "medium";
+  return "low";
+}
+
+function normalizeBox(
+  box: GroundingDinoDetection["box"],
+  imageWidth?: number,
+  imageHeight?: number,
+): BoundingBox | undefined {
+  if (!box) return undefined;
+
+  if ("x" in box && "y" in box && "width" in box && "height" in box) {
+    const abs = Math.max(box.x, box.y, box.width, box.height) > 1.5;
+    if (abs && imageWidth && imageHeight) {
+      return {
+        x: box.x / imageWidth,
+        y: box.y / imageHeight,
+        width: box.width / imageWidth,
+        height: box.height / imageHeight,
+      };
+    }
+
+    return box;
+  }
+
+  if (Array.isArray(box) && box.length >= 4) {
+    const [x1, y1, x2, y2] = box;
+    const abs = Math.max(x1, y1, x2, y2) > 1.5;
+    if (abs && imageWidth && imageHeight) {
+      return {
+        x: x1 / imageWidth,
+        y: y1 / imageHeight,
+        width: (x2 - x1) / imageWidth,
+        height: (y2 - y1) / imageHeight,
+      };
+    }
+
+    return {
+      x: x1,
+      y: y1,
+      width: x2 - x1,
+      height: y2 - y1,
+    };
+  }
+
+  return undefined;
+}
+
+export async function registerRoutes(app: Express): Promise<void> {
   app.post("/api/analyze-image", async (req, res) => {
     try {
       const { image } = req.body;
-      
+
       if (!image) {
         return res.status(400).json({ error: "Image data is required" });
       }
 
-      console.log("Starting image analysis, image size:", Math.round(image.length / 1024), "KB");
+      const paligemmaKey = process.env.NVIDIA_PALIGEMMA_API_KEY || process.env.NVIDIA_PERSONAL_API_KEY;
+      const groundingKey = process.env.NVIDIA_GROUNDING_DINO_API_KEY || process.env.NVIDIA_PERSONAL_API_KEY;
 
-      const detectionResponse = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Analyze this crime scene evidence photo. Detect and list ALL visible objects relevant to law enforcement investigation including: weapons, vehicles, persons, license plates, drugs/substances, blood stains, fingerprints, documents, electronic devices, evidence markers, and any other notable items.
-
-For each detected object, provide in JSON format:
-{
-  "objects": [
-    {
-      "name": "object name",
-      "confidence": "high/medium/low",
-      "category": "weapon/vehicle/person/biometric/drug/document/electronics/markers/tools/other",
-      "boundingBox": {
-        "x": 0.0-1.0,
-        "y": 0.0-1.0, 
-        "width": 0.0-1.0,
-        "height": 0.0-1.0
+      if (!paligemmaKey && !groundingKey) {
+        return res.status(503).json({
+          error: "NVIDIA API keys not configured. Please set NVIDIA_PALIGEMMA_API_KEY and NVIDIA_GROUNDING_DINO_API_KEY in .env",
+        });
       }
-    }
-  ],
-  "summary": "2-3 sentence professional summary"
-}
-
-IMPORTANT: Bounding box coordinates must be normalized (0.0 to 1.0) relative to image dimensions.
-- x: left edge position (0.0 = left, 1.0 = right)
-- y: top edge position (0.0 = top, 1.0 = bottom)
-- width: box width as fraction of image width
-- height: box height as fraction of image height
-
-Be thorough and objective. Detect every relevant visible item.`
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:image/jpeg;base64,${image}`,
-                  detail: "high"
-                }
-              }
-            ]
-          }
-        ],
-        max_tokens: 2000,
-        response_format: { type: "json_object" },
-      });
-
-      const responseContent = detectionResponse.choices[0]?.message?.content || "{}";
-      let parsedResponse: { objects?: any[]; summary?: string } = {};
-      
-      try {
-        parsedResponse = JSON.parse(responseContent);
-      } catch (e) {
-        console.error("Failed to parse JSON response:", e);
-        parsedResponse = { objects: [], summary: "" };
+      if (!paligemmaKey) {
+        return res.status(503).json({
+          error: "NVIDIA_PALIGEMMA_API_KEY is required to generate image summaries.",
+        });
       }
 
-      const rawObjects = parsedResponse.objects || [];
-      const aiSummary = parsedResponse.summary || "";
+      const imageMimeType = detectImageMimeType(image);
+      const groundingPrompt = buildGroundingPrompt(categoryKeywords);
 
-      const detectedObjects: DetectedObject[] = rawObjects.map((obj: any) => {
-        const { categoryId, category } = categorizeObjectByKeyword(obj.name);
-        
-        let location: DetectedObject["location"] = "center";
-        if (obj.boundingBox) {
-          const centerX = obj.boundingBox.x + obj.boundingBox.width / 2;
-          const centerY = obj.boundingBox.y + obj.boundingBox.height / 2;
-          
-          if (centerY < 0.33) {
-            if (centerX < 0.33) location = "top-left";
-            else if (centerX > 0.66) location = "top-right";
-            else location = "top-center";
-          } else if (centerY > 0.66) {
-            if (centerX < 0.33) location = "bottom-left";
-            else if (centerX > 0.66) location = "bottom-right";
-            else location = "bottom-center";
-          } else {
-            if (centerX < 0.33) location = "center-left";
-            else if (centerX > 0.66) location = "center-right";
-            else location = "center";
-          }
-        }
+      const [summaryResult, detectionsResult] = await Promise.allSettled([
+        paligemmaSummarizeImage({
+          imageBase64: image,
+          mimeType: imageMimeType,
+          apiKey: paligemmaKey,
+        }),
+        groundingKey
+          ? groundingDinoDetectObjects({
+              imageBase64: image,
+              mimeType: imageMimeType,
+              prompt: groundingPrompt,
+              threshold: 0.3,
+              apiKey: groundingKey,
+            })
+          : Promise.resolve([] as GroundingDinoDetection[]),
+      ]);
+
+      let paligemmaError: string | null = null;
+      if (summaryResult.status === "rejected") {
+        paligemmaError =
+          summaryResult.reason instanceof Error
+            ? summaryResult.reason.message
+            : String(summaryResult.reason);
+        console.error("PaliGemma summary failed:", paligemmaError);
+      }
+
+      let aiSummary =
+        summaryResult.status === "fulfilled" && summaryResult.value
+          ? summaryResult.value
+          : "AI summary unavailable.";
+
+      const groundingDetections =
+        detectionsResult.status === "fulfilled" ? detectionsResult.value : [];
+
+      const detectedObjects: DetectedObject[] = groundingDetections.map((det) => {
+        const { categoryId, category } = categorizeObjectByKeyword(det.label);
+        const confidence = mapScoreToConfidence(det.score);
+        const boundingBox = normalizeBox(det.box, det.imageWidth, det.imageHeight);
+        const location = computeLocationFromBox(boundingBox);
 
         return {
           id: generateObjectId(),
-          label: obj.name,
-          confidence: obj.confidence || "medium",
+          label: det.label,
+          confidence,
           category,
           categoryId,
           location,
-          boundingBox: obj.boundingBox,
-          description: `${obj.confidence} confidence detection`,
+          boundingBox,
+          description: `${confidence} confidence detection (${Math.round(det.score * 100)}%)`,
         };
       });
 
-      let annotatedImage: string | null = null;
-      const objectsWithBoxes = detectedObjects.filter(obj => obj.boundingBox);
-      
-      if (objectsWithBoxes.length > 0) {
-        try {
-          annotatedImage = await drawBoundingBoxes(
-            image,
-            objectsWithBoxes.map(obj => ({
-              name: obj.label,
-              confidence: obj.confidence,
-              category: obj.category,
-              boundingBox: obj.boundingBox!,
-            }))
-          );
-        } catch (error) {
-          console.error("Failed to draw bounding boxes:", error);
-        }
+      const normalizedSummary = aiSummary.toLowerCase();
+      if (
+        !aiSummary ||
+        aiSummary === "AI summary unavailable." ||
+        normalizedSummary.includes("not trained") ||
+        normalizedSummary.includes("cannot") ||
+        normalizedSummary.includes("can't")
+      ) {
+        const objectSummary = detectedObjects.slice(0, 5).map((obj) => obj.label).join(", ");
+        aiSummary = detectedObjects.length
+          ? `Analysis detected ${detectedObjects.length} objects including: ${objectSummary}.`
+          : "No objects detected in the image.";
       }
 
-      res.json({ 
+      const annotatedImage: string | null = null;
+
+      res.json({
         detectedObjects,
         aiSummary,
         annotatedImage,
         analysis: aiSummary,
         objectCount: detectedObjects.length,
+        aiSummarySource: summaryResult.status === "fulfilled" ? "paligemma" : "fallback",
+        aiSummaryError: paligemmaError || undefined,
         confidenceDistribution: {
           high: detectedObjects.filter(o => o.confidence === "high").length,
           medium: detectedObjects.filter(o => o.confidence === "medium").length,
           low: detectedObjects.filter(o => o.confidence === "low").length,
-        }
+        },
       });
     } catch (error) {
       console.error("Error analyzing image:", error);
@@ -260,14 +256,14 @@ Be thorough and objective. Detect every relevant visible item.`
   app.post("/api/generate-report", async (req, res) => {
     try {
       const { caseData, evidence, activityLog, profile } = req.body;
-      
+
       if (!caseData) {
         return res.status(400).json({ error: "Case data is required" });
       }
 
       // Generate HTML for the PDF
       const html = generateReportHtml(caseData, evidence || [], activityLog || [], profile || {});
-      
+
       res.json({ html });
     } catch (error) {
       console.error("Error generating report:", error);
@@ -275,9 +271,7 @@ Be thorough and objective. Detect every relevant visible item.`
     }
   });
 
-  const httpServer = createServer(app);
-
-  return httpServer;
+  return;
 }
 
 function generateReportHtml(
@@ -544,17 +538,17 @@ function generateReportHtml(
       <div style="position: absolute; top: 5px; left: 10px; right: 10px; font-size: 11px; color: #666;">Timeline Visualization</div>
       <div style="position: absolute; bottom: 20px; left: 10px; right: 10px; height: 8px; background: #1E3A5F; border-radius: 4px;">
         ${evidence.filter(e => e.relativeTimestamp !== undefined).map(e => {
-          const position = caseData.backgroundVideoDuration 
-            ? ((e.relativeTimestamp || 0) / caseData.backgroundVideoDuration) * 100 
-            : 0;
-          const colors: Record<string, string> = {
-            photo: '#4488FF',
-            video: '#FF4444',
-            audio: '#44CC44',
-            note: '#FFCC00'
-          };
-          return `<div style="position: absolute; left: ${position}%; top: -4px; width: 16px; height: 16px; background: ${colors[e.type] || '#888'}; border-radius: 50%; border: 2px solid white;" title="${e.type} at ${formatTimecode(e.relativeTimestamp || 0)}"></div>`;
-        }).join('')}
+    const position = caseData.backgroundVideoDuration
+      ? ((e.relativeTimestamp || 0) / caseData.backgroundVideoDuration) * 100
+      : 0;
+    const colors: Record<string, string> = {
+      photo: '#4488FF',
+      video: '#FF4444',
+      audio: '#44CC44',
+      note: '#FFCC00'
+    };
+    return `<div style="position: absolute; left: ${position}%; top: -4px; width: 16px; height: 16px; background: ${colors[e.type] || '#888'}; border-radius: 50%; border: 2px solid white;" title="${e.type} at ${formatTimecode(e.relativeTimestamp || 0)}"></div>`;
+  }).join('')}
       </div>
       <div style="position: absolute; bottom: 5px; left: 10px; font-size: 10px; color: #666;">00:00</div>
       <div style="position: absolute; bottom: 5px; right: 10px; font-size: 10px; color: #666;">${formatTimecode(caseData.backgroundVideoDuration || 0)}</div>

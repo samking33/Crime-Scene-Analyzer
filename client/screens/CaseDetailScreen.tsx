@@ -78,13 +78,13 @@ export default function CaseDetailScreen() {
 
   const handleGenerateReport = async () => {
     if (!caseData) return;
-    
+
     setIsGeneratingReport(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    
+
     try {
       const profile = await getProfile();
-      
+
       const url = new URL("/api/generate-report", getApiUrl());
       const response = await fetch(url.toString(), {
         method: "POST",
@@ -96,25 +96,25 @@ export default function CaseDetailScreen() {
           profile,
         }),
       });
-      
+
       if (!response.ok) {
         throw new Error("Failed to generate report");
       }
-      
+
       const { html } = await response.json();
-      
+
       const { uri } = await Print.printToFileAsync({ html });
-      
+
       const report = await createReport(caseData);
       await updateReport(report.id, { pdfUri: uri, status: "exported" });
-      
+
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, {
           mimeType: "application/pdf",
           dialogTitle: `Share Report - ${caseData.caseId}`,
         });
       }
-      
+
       navigation.navigate("Main", { screen: "ReportsTab" });
     } catch (error) {
       console.error("Failed to generate report:", error);
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   caseIdBadge: {
-    backgroundColor: "rgba(0, 176, 255, 0.1)",
+    backgroundColor: "rgba(139, 92, 246, 0.1)",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: BorderRadius.md,
-    backgroundColor: "rgba(0, 176, 255, 0.15)",
+    backgroundColor: "rgba(16, 185, 129, 0.15)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "rgba(0, 176, 255, 0.3)",
+    borderColor: "rgba(139, 92, 246, 0.3)",
   },
   tabBar: {
     flexDirection: "row",

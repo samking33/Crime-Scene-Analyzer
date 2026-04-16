@@ -50,7 +50,7 @@ export default function InvestigationScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
-  
+
   const [activeCase, setActiveCaseData] = useState<Case | null>(null);
   const [recentEvidence, setRecentEvidence] = useState<Evidence[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -61,10 +61,10 @@ export default function InvestigationScreen() {
   const [isProcessingAnalysis, setIsProcessingAnalysis] = useState(false);
   const [facing, setFacing] = useState<"front" | "back">("back");
   const [pendingAnalysisList, setPendingAnalysisList] = useState<PendingAnalysis[]>([]);
-  
+
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [locationPermission, requestLocationPermission] = Location.useForegroundPermissions();
-  
+
   const cameraRef = useRef<CameraView>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -162,38 +162,38 @@ export default function InvestigationScreen() {
 
   const handleStartInvestigation = async () => {
     if (!activeCase) return;
-    
+
     if (!cameraPermission?.granted) {
       const result = await requestCameraPermission();
       if (!result.granted) return;
     }
-    
+
     if (!locationPermission?.granted) {
       await requestLocationPermission();
     }
-    
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setIsRecording(true);
     setPendingAnalysisList([]);
-    
+
     const investigationStartTime = new Date().toISOString();
     const videoStartTimestamp = Date.now();
     videoRecordingStartTimeRef.current = videoStartTimestamp;
-    
-    await updateCase(activeCase.id, { 
+
+    await updateCase(activeCase.id, {
       status: "active",
       investigationStartTime,
       videoRecordingStartTime: videoStartTimestamp,
     });
     const profile = await getProfile();
     await logActivity(activeCase.id, "Investigation started", profile.name, "Background recording initiated");
-    setActiveCaseData({ 
-      ...activeCase, 
+    setActiveCaseData({
+      ...activeCase,
       status: "active",
       investigationStartTime,
       videoRecordingStartTime: videoStartTimestamp,
     });
-    
+
     if (Platform.OS !== "web") {
       startBackgroundVideoRecording();
     }
@@ -201,23 +201,23 @@ export default function InvestigationScreen() {
 
   const startBackgroundVideoRecording = async () => {
     if (!cameraRef.current || isBackgroundRecording) return;
-    
+
     try {
       setIsBackgroundRecording(true);
       const video = await cameraRef.current.recordAsync({
         maxDuration: 7200,
       });
-      
+
       if (video && activeCase) {
         const endTime = Date.now();
         const duration = (endTime - videoRecordingStartTimeRef.current) / 1000;
-        
+
         await updateCase(activeCase.id, {
           backgroundVideoUri: video.uri,
           backgroundVideoDuration: duration,
           videoRecordingEndTime: endTime,
         });
-        
+
         const updatedCase = await getCase(activeCase.id);
         if (updatedCase) setActiveCaseData(updatedCase);
       }
@@ -239,43 +239,43 @@ export default function InvestigationScreen() {
 
   const processAllPendingAnalysis = async () => {
     if (pendingAnalysisList.length === 0) return;
-    
+
     setIsProcessingAnalysis(true);
     const profile = await getProfile();
-    
+
     for (const pending of pendingAnalysisList) {
       try {
         const result = await analyzeImage(pending.base64);
         if (result) {
           let annotatedImageUri: string | undefined;
-          
+
           if (result.annotatedImage) {
             const docDir = FileSystem.documentDirectory || "";
             const annotatedPath = `${docDir}${pending.caseId}/annotated_${pending.evidenceId}.jpg`;
-            await FileSystem.makeDirectoryAsync(`${docDir}${pending.caseId}`, { intermediates: true }).catch(() => {});
+            await FileSystem.makeDirectoryAsync(`${docDir}${pending.caseId}`, { intermediates: true }).catch(() => { });
             await FileSystem.writeAsStringAsync(annotatedPath, result.annotatedImage, {
               encoding: "base64",
             });
             annotatedImageUri = annotatedPath;
           }
-          
-          await updateEvidence(pending.evidenceId, { 
+
+          await updateEvidence(pending.evidenceId, {
             detectedObjects: result.detectedObjects,
             aiSummary: result.aiSummary,
             aiAnalysis: result.analysis,
             analysisStatus: "completed",
             annotatedImageUri,
           });
-          
-          await logActivity(pending.caseId, "AI analysis completed", profile.name, 
+
+          await logActivity(pending.caseId, "AI analysis completed", profile.name,
             `${result.objectCount} objects detected`);
-          
+
           if (result.detectedObjects && result.detectedObjects.length > 0) {
             const categoryNameToId: Record<string, number> = {
               weapon: 1, vehicle: 2, person: 3, biometric: 4, drug: 5,
               document: 6, electronics: 7, markers: 8, tools: 9, other: 10,
             };
-            
+
             const categorizedObjects: CategorizedObject[] = result.detectedObjects.map((obj: DetectedObject) => ({
               id: obj.id,
               evidenceId: pending.evidenceId,
@@ -287,7 +287,7 @@ export default function InvestigationScreen() {
               categoryName: obj.category,
               detectedAt: Date.now(),
             }));
-            
+
             await saveCategorizedObjects(pending.caseId, categorizedObjects);
           }
         }
@@ -296,10 +296,10 @@ export default function InvestigationScreen() {
         await updateEvidence(pending.evidenceId, { analysisStatus: "failed" });
       }
     }
-    
+
     setPendingAnalysisList([]);
     setIsProcessingAnalysis(false);
-    
+
     if (activeCase) {
       const updatedEvidence = await getEvidence(activeCase.id);
       setRecentEvidence(updatedEvidence.slice(0, 5));
@@ -308,38 +308,36 @@ export default function InvestigationScreen() {
 
   const handleStopInvestigation = async () => {
     if (!activeCase) return;
-    
+
     if (isVideoRecording) {
       handleStopVideoRecording();
     }
-    
+
     if (isBackgroundRecording) {
       stopBackgroundVideoRecording();
     }
-    
+
     const investigationEndTime = new Date().toISOString();
     const videoEndTimestamp = Date.now();
-    
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     setIsRecording(false);
-    await updateCase(activeCase.id, { 
+    await updateCase(activeCase.id, {
       status: "pending",
       investigationEndTime,
       videoRecordingEndTime: videoEndTimestamp,
     });
     const profile = await getProfile();
     await logActivity(activeCase.id, "Investigation stopped", profile.name, `Recording duration: ${recordingDuration}`);
-    setActiveCaseData({ 
-      ...activeCase, 
+    setActiveCaseData({
+      ...activeCase,
       status: "pending",
       investigationEndTime,
       videoRecordingEndTime: videoEndTimestamp,
     });
-    
-    if (pendingAnalysisList.length > 0) {
-      console.log(`Starting AI analysis for ${pendingAnalysisList.length} photos...`);
-      processAllPendingAnalysis();
-    }
+
+
+    await processAllPendingAnalysis();
   };
 
   const getCurrentLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
@@ -347,7 +345,7 @@ export default function InvestigationScreen() {
       const result = await requestLocationPermission();
       if (!result.granted) return null;
     }
-    
+
     try {
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
@@ -363,14 +361,14 @@ export default function InvestigationScreen() {
 
   const handleCapturePhoto = async () => {
     if (!activeCase || !cameraRef.current || isCapturing) return;
-    
+
     setIsCapturing(true);
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      
+
       const captureTime = Date.now();
       const captureTimestamp = new Date().toISOString();
-      
+
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.7,
         base64: true,
@@ -379,17 +377,17 @@ export default function InvestigationScreen() {
         setIsCapturing(false);
         return;
       }
-      
+
       const location = await getCurrentLocation();
       const profile = await getProfile();
-      
+
       let relativeTimestamp: number | undefined;
       if (videoRecordingStartTimeRef.current > 0) {
         relativeTimestamp = (captureTime - videoRecordingStartTimeRef.current) / 1000;
       } else if (activeCase.videoRecordingStartTime) {
         relativeTimestamp = (captureTime - activeCase.videoRecordingStartTime) / 1000;
       }
-      
+
       const newEvidence = await addEvidence({
         caseId: activeCase.id,
         type: "photo",
@@ -401,12 +399,12 @@ export default function InvestigationScreen() {
         longitude: location?.longitude,
         analysisStatus: "pending",
       });
-      
+
       await logActivity(activeCase.id, "Photo captured", profile.name, location ? "GPS tagged" : "No GPS");
-      
+
       const evidence = await getEvidence(activeCase.id);
       setRecentEvidence(evidence.slice(0, 5));
-      
+
       const updatedCase = await getCase(activeCase.id);
       if (updatedCase) setActiveCaseData(updatedCase);
 
@@ -418,7 +416,7 @@ export default function InvestigationScreen() {
           evidenceUri: photo.uri,
         }]);
       }
-      
+
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error("Failed to capture photo:", error);
@@ -430,34 +428,34 @@ export default function InvestigationScreen() {
 
   const handleStartVideoRecording = async () => {
     if (!activeCase || !cameraRef.current || isVideoRecording) return;
-    
+
     if (Platform.OS === "web") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
-    
+
     const recordStartTime = Date.now();
-    
+
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       setIsVideoRecording(true);
-      
+
       const video = await cameraRef.current.recordAsync({
         maxDuration: 300,
       });
-      
+
       if (video) {
         const recordEndTime = Date.now();
         const location = await getCurrentLocation();
         const profile = await getProfile();
-        
+
         let relativeTimestamp: number | undefined;
         if (videoRecordingStartTimeRef.current > 0) {
           relativeTimestamp = (recordStartTime - videoRecordingStartTimeRef.current) / 1000;
         } else if (activeCase.videoRecordingStartTime) {
           relativeTimestamp = (recordStartTime - activeCase.videoRecordingStartTime) / 1000;
         }
-        
+
         await addEvidence({
           caseId: activeCase.id,
           type: "video",
@@ -469,12 +467,12 @@ export default function InvestigationScreen() {
           latitude: location?.latitude,
           longitude: location?.longitude,
         });
-        
+
         await logActivity(activeCase.id, "Video recorded", profile.name, location ? "GPS tagged" : "No GPS");
-        
+
         const evidence = await getEvidence(activeCase.id);
         setRecentEvidence(evidence.slice(0, 5));
-        
+
         const updatedCase = await getCase(activeCase.id);
         if (updatedCase) setActiveCaseData(updatedCase);
       }
@@ -487,7 +485,7 @@ export default function InvestigationScreen() {
 
   const handleStopVideoRecording = () => {
     if (!cameraRef.current) return;
-    
+
     try {
       cameraRef.current.stopRecording();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -556,7 +554,7 @@ export default function InvestigationScreen() {
           styles.scrollContent,
           {
             paddingTop: headerHeight + Spacing.md,
-            paddingBottom: tabBarHeight + Spacing.xl,
+            paddingBottom: tabBarHeight + Spacing.xl + 100, // Extra padding to prevent overlap
           },
         ]}
         showsVerticalScrollIndicator={false}
@@ -602,13 +600,13 @@ export default function InvestigationScreen() {
                       <ActivityIndicator size="small" color={Colors.dark.text} />
                     </View>
                   ) : null}
-                  
+
                   <View style={styles.cameraControls}>
                     <Pressable onPress={handleToggleCamera} style={styles.cameraControlButton}>
                       <Feather name="refresh-cw" size={18} color={Colors.dark.text} />
                     </Pressable>
                   </View>
-                  
+
                   <View style={styles.zoomIndicator}>
                     <ThemedText style={styles.zoomText}>
                       {(1 + zoom.value * 4).toFixed(1)}x
@@ -649,8 +647,8 @@ export default function InvestigationScreen() {
 
         <Animated.View entering={FadeIn.duration(300).delay(200)} style={styles.controlsContainer}>
           {!isRecording ? (
-            <Button 
-              onPress={handleStartInvestigation} 
+            <Button
+              onPress={handleStartInvestigation}
               variant="primary"
               testID="button-start-investigation"
             >
@@ -666,7 +664,7 @@ export default function InvestigationScreen() {
                   </ThemedText>
                 </View>
               ) : null}
-              
+
               <View style={styles.evidenceButtonsRow}>
                 <EvidenceButton
                   icon="file-text"
@@ -689,20 +687,20 @@ export default function InvestigationScreen() {
                   testID="button-record-audio"
                 />
               </View>
-              
+
               {Platform.OS !== "web" ? (
                 <View style={styles.videoControlsRow}>
                   {!isVideoRecording ? (
-                    <Pressable 
-                      onPress={handleStartVideoRecording} 
+                    <Pressable
+                      onPress={handleStartVideoRecording}
                       style={styles.videoButton}
                     >
                       <Feather name="video" size={18} color={Colors.dark.text} />
                       <ThemedText style={styles.videoButtonText}>Record Video</ThemedText>
                     </Pressable>
                   ) : (
-                    <Pressable 
-                      onPress={handleStopVideoRecording} 
+                    <Pressable
+                      onPress={handleStopVideoRecording}
                       style={[styles.videoButton, styles.videoStopButton]}
                     >
                       <View style={styles.stopIcon} />
@@ -711,7 +709,7 @@ export default function InvestigationScreen() {
                   )}
                 </View>
               ) : null}
-              
+
               <Pressable
                 onPress={handleStopInvestigation}
                 style={styles.stopInvestigationButton}
@@ -914,6 +912,8 @@ const styles = StyleSheet.create({
   },
   controlsContainer: {
     gap: Spacing.md,
+    zIndex: 10,
+    position: "relative",
   },
   pendingBadge: {
     flexDirection: "row",

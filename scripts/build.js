@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { spawn } = require("child_process");
+const { spawn, execSync } = require("child_process");
 const { Readable } = require("stream");
 const { pipeline } = require("stream/promises");
 
@@ -108,8 +108,12 @@ async function checkMetroHealth() {
 async function startMetro(expoPublicDomain) {
   const isRunning = await checkMetroHealth();
   if (isRunning) {
-    console.log("Metro already running");
-    return;
+    console.log("Metro already running - restarting to apply env");
+    try {
+      execSync("lsof -ti :8081 | xargs kill -9", { stdio: "ignore" });
+    } catch {
+      // ignore if nothing is listening
+    }
   }
 
   console.log("Starting Metro...");

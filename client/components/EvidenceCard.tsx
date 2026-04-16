@@ -143,13 +143,13 @@ export function EvidenceCard({ evidence, compact = false, onPress, index = 0 }: 
       testID={`evidence-${evidence.id}`}
     >
       <View style={[styles.accentBar, { backgroundColor: getTypeColor() }]} />
-      
+
       <View style={styles.cardContent}>
         <View style={styles.header}>
           <View style={[styles.iconContainer, { backgroundColor: getTypeColor() + "15" }]}>
             <Feather name={getIcon()} size={22} color={getTypeColor()} />
           </View>
-          
+
           <View style={styles.headerText}>
             <ThemedText style={styles.evidenceId}>
               Evidence #{evidence.id.slice(-6).toUpperCase()}
@@ -164,7 +164,7 @@ export function EvidenceCard({ evidence, compact = false, onPress, index = 0 }: 
               </ThemedText>
             </View>
           </View>
-          
+
           {evidence.aiAnalysis ? (
             <AnalysisBadge status="completed" size="sm" />
           ) : null}
@@ -237,7 +237,7 @@ export function EvidenceCard({ evidence, compact = false, onPress, index = 0 }: 
               </ThemedText>
             </View>
           </View>
-          
+
           <Pressable
             style={styles.viewButton}
             onPress={handlePress}
@@ -403,11 +403,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: Spacing.sm,
-    backgroundColor: "rgba(0, 176, 255, 0.08)",
+    backgroundColor: "rgba(16, 185, 129, 0.08)",
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(0, 176, 255, 0.2)",
+    borderColor: "rgba(16, 185, 129, 0.2)",
   },
   aiSummaryText: {
     flex: 1,
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: "rgba(41, 98, 255, 0.1)",
+    backgroundColor: "rgba(139, 92, 246, 0.1)",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,

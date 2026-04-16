@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     borderColor: Colors.dark.primary,
-    backgroundColor: "rgba(41, 98, 255, 0.05)",
+    backgroundColor: "rgba(139, 92, 246, 0.05)",
   },
   inputError: {
     borderColor: Colors.dark.error,

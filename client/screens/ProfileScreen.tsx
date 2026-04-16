@@ -61,8 +61,10 @@ export default function ProfileScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
-  
+
   const [profile, setProfile] = useState<OfficerProfile | null>(null);
+  const [darkMode, setDarkMode] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -80,6 +82,48 @@ export default function ProfileScreen() {
 
   const handleActivityLog = () => {
     navigation.navigate("ActivityLog");
+  };
+
+  const handleDarkModeToggle = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setDarkMode(!darkMode);
+    // Note: Dark mode is currently always on in this app
+    console.log("Dark mode toggled:", !darkMode);
+  };
+
+  const handleNotificationsToggle = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setNotificationsEnabled(!notificationsEnabled);
+    console.log("Notifications toggled:", !notificationsEnabled);
+  };
+
+  const handleGPSSettings = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // TODO: Navigate to GPS settings screen or show modal
+    console.log("GPS Settings pressed");
+  };
+
+  const handleVersionInfo = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    console.log("Version info pressed");
+  };
+
+  const handleTermsOfService = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // TODO: Navigate to Terms of Service screen
+    console.log("Terms of Service pressed");
+  };
+
+  const handlePrivacyPolicy = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // TODO: Navigate to Privacy Policy screen
+    console.log("Privacy Policy pressed");
+  };
+
+  const handleLogOut = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    // TODO: Implement logout functionality
+    console.log("Log out pressed");
   };
 
   return (
@@ -138,22 +182,22 @@ export default function ProfileScreen() {
           <SettingsItem
             icon="moon"
             label="Dark Mode"
-            rightText="On"
+            rightText={darkMode ? "On" : "Off"}
             showChevron={false}
-            onPress={() => {}}
+            onPress={handleDarkModeToggle}
           />
           <SettingsItem
             icon="bell"
             label="Notifications"
-            rightText="Off"
+            rightText={notificationsEnabled ? "On" : "Off"}
             showChevron={false}
-            onPress={() => {}}
+            onPress={handleNotificationsToggle}
           />
           <SettingsItem
             icon="map-pin"
             label="GPS Accuracy"
             rightText="High"
-            onPress={() => {}}
+            onPress={handleGPSSettings}
           />
         </View>
       </View>
@@ -166,17 +210,17 @@ export default function ProfileScreen() {
             label="Version"
             rightText="1.0.0"
             showChevron={false}
-            onPress={() => {}}
+            onPress={handleVersionInfo}
           />
           <SettingsItem
             icon="file-text"
             label="Terms of Service"
-            onPress={() => {}}
+            onPress={handleTermsOfService}
           />
           <SettingsItem
             icon="shield"
             label="Privacy Policy"
-            onPress={() => {}}
+            onPress={handlePrivacyPolicy}
           />
         </View>
       </View>
@@ -188,7 +232,7 @@ export default function ProfileScreen() {
             label="Log Out"
             danger
             showChevron={false}
-            onPress={() => {}}
+            onPress={handleLogOut}
           />
         </View>
       </View>

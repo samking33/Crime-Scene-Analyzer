@@ -263,8 +263,8 @@ export function IconButton({
           borderRadius: size / 2,
           backgroundColor:
             variant === "filled"
-              ? "rgba(41, 98, 255, 0.15)"
-              : "rgba(255, 255, 255, 0.05)",
+              ? "rgba(139, 92, 246, 0.15)"
+              : "rgba(248, 250, 252, 0.05)",
         },
         disabled && styles.disabled,
         animatedStyle,
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
   secondaryButton: {
     borderWidth: 1.5,
     borderColor: Colors.dark.borderAccent,
-    backgroundColor: "rgba(41, 98, 255, 0.08)",
+    backgroundColor: "rgba(139, 92, 246, 0.08)",
   },
   secondaryContent: {
     flexDirection: "row",
@@ -324,8 +324,8 @@ const styles = StyleSheet.create({
   },
   dangerButton: {
     borderWidth: 1.5,
-    borderColor: "rgba(229, 57, 53, 0.3)",
-    backgroundColor: "rgba(229, 57, 53, 0.08)",
+    borderColor: "rgba(239, 68, 68, 0.3)",
+    backgroundColor: "rgba(239, 68, 68, 0.08)",
   },
   dangerContent: {
     flexDirection: "row",
